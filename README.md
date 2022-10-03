@@ -1,8 +1,6 @@
 # Efektif Go
 
-{% hint style="info" %}
-Bu sayfa 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_go) adlı yazıdan tercüme edilmiştir.
-{% endhint %}
+Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_go) adlı yazıdan tercüme edilmiştir.
 
 ## Giriş
 
