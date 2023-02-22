@@ -978,3 +978,171 @@ func Min(a ...int) int {
     return min
 }
 ```
+
+### Append _(Ekle)_
+
+Artık, `append` yerleşik fonksiyonunun tasarımını açıklamak için ihtiyacımız olan eksik parçaya sahibiz. `Append`'in imzası, yukarıdaki özel `Append` fonksiyonumuzdan farklıdır. Şematik olarak, şöyle:
+
+```go
+func append(slice []T, elements ...T) []T
+```
+
+Burada `T`, herhangi bir tür için yer tutucudur. Go'da, `T` türünün arayan tarafından belirlendiği bir fonksiyonu gerçekten yazamazsınız. Bu nedenle `append` yerleşiktir: derleyiciden desteğe ihtiyacı vardır. `Append`'in yaptığı, öğeleri dilimin sonuna eklemek ve sonucu döndürmektir.
+
+Bizim el ile yazdığımız `Append`'te olduğu gibi, sonucun döndürülmesi gerekiyor. Basit bir örnek:
+
+```go
+x := []int{1,2,3}
+x = append(x, 4, 5, 6)
+fmt.Println(x)
+```
+
+`[1 2 3 4 5 6]` yazdırır. Bu nedenle, ekleme biraz `Printf` gibi çalışır ve rastgele sayıda argüman toplar.
+
+Peki ya `Append`'imizin yaptığını yapmak ve bir dilime bir dilim eklemek istersek? Kolay: yukarıdaki Çıktı çağrısında yaptığımız gibi çağrı sitesinde `...` kullanın. Bu snippet, yukarıdakiyle aynı çıktıyı üretir.
+
+```go
+x := []int{1,2,3}
+y := []int{4,5,6}
+x = append(x, y...)
+fmt.Println(x)
+```
+
+`...` olmadan, türler yanlış olacağından derlenmez; `y`, `int` türünde değil.
+
+## Tanımlama _(Initialization)_
+
+C veya C++'daki tanımlamadan yüzeysel olarak çok farklı görünmese de, Go'daki tanımlama daha güçlüdür. Tanımlama sırasında karmaşık yapılar oluşturulabilir ve tanımlanan nesneler arasındaki, hatta farklı paketler arasındaki sıralama sorunları doğru bir şekilde ele alınır.
+
+### Sabitler _(Constants)_
+
+Go'daki sabitler tam da budur - sabit. Fonsiyonlarda yerel olarak tanımlansalar bile derleme zamanında oluşturulurlar ve yalnızca sayılar, karakterler _(rünler)_, dizeler veya boolean'lar olabilirler. Derleme zamanı kısıtlaması nedeniyle, bunları tanımlayan ifadeler, derleyici tarafından değerlendirilebilen sabit ifadeler olmalıdır. Örneğin, `1<<3` sabit bir ifadeyken, `math.Sin(math.Pi/4)` fonksiyonu, `math.Sin` fonksiyonu çağrısının çalışma zamanında gerçekleşmesi gerektiğinden değildir.
+
+Go'da, numaralandırılmış _(enumerated)_ sabitler, `iota` Numaralandırıcı kullanılarak oluşturulur. `iota` bir ifadenin parçası olabildiği ve ifadeler dolaylı olarak tekrarlanabildiği için, karmaşık değer kümeleri oluşturmak kolaydır.
+
+```go
+type ByteSize float64
+
+const (
+    _           = iota // boş tanımlayıcı kullanarak ilk elemanı görmezden gel
+    KB ByteSize = 1 << (10 * iota)
+    MB
+    GB
+    TB
+    PB
+    EB
+    ZB
+    YB
+)
+```
+
+Herhangi bir kullanıcı tanımlı türe `String` gibi bir method ekleyebilme özelliği, rastgele değerlerin yazdırılmak üzere kendilerini otomatik olarak biçimlendirmesini mümkün kılar. Çoğu zaman yapılara _(struct)_ uygulandığını görseniz de bu teknik, `ByteSize` gibi ondalık sayı türleri gibi skaler türler için de kullanışlıdır.
+
+```go
+func (b ByteSize) String() string {
+    switch {
+    case b >= YB:
+        return fmt.Sprintf("%.2fYB", b/YB)
+    case b >= ZB:
+        return fmt.Sprintf("%.2fZB", b/ZB)
+    case b >= EB:
+        return fmt.Sprintf("%.2fEB", b/EB)
+    case b >= PB:
+        return fmt.Sprintf("%.2fPB", b/PB)
+    case b >= TB:
+        return fmt.Sprintf("%.2fTB", b/TB)
+    case b >= GB:
+        return fmt.Sprintf("%.2fGB", b/GB)
+    case b >= MB:
+        return fmt.Sprintf("%.2fMB", b/MB)
+    case b >= KB:
+        return fmt.Sprintf("%.2fKB", b/KB)
+    }
+    return fmt.Sprintf("%.2fB", b)
+}
+```
+
+`YB` ifadesi `1.00YB` olarak yazdırılırken `ByteSize(1e13)` `9.09TB` olarak yazdırılır. `ByteSize`'ın `String` ethodunu uygulamak için `Sprintf`'in burada kullanılması güvenlidir (süresiz olarak tekrar etmekten kaçınır)
+
+Bu sefer bir dönüştürme nedeniyle değil, `Sprintf`'i bir dize _(string)_ biçimi olmayan `%f` ile çağırdığı için: `Sprintf`, yalnızca bir dize istediğinde `String` yöntemini çağırır ve `%f` bir ondalık sayılı değer istiyor.
+
+### Değişkenler _(Variables)_
+
+Değişkenler, tıpkı sabitler gibi tanımladabilir, ancak tanımlayıcı, çalışma zamanında hesaplanan genel bir ifade olabilir.
+
+```go
+var (
+    home   = os.Getenv("HOME")
+    user   = os.Getenv("USER")
+    gopath = os.Getenv("GOPATH")
+)
+```
+
+### init Fonksiyonu _(The init Function)_
+
+Son olarak, her kaynak dosya, gereken durumu ayarlamak için kendi niladic _(parametresiz fonksiyon)_ `init` fonksiyonunu tanımlayabilir. _(Aslında her dosya birden çok `init` işlevine sahip olabilir.)_  `init`, paketteki tüm değişken tanımlayıcılarını değerlendirdikten sonra çağrılır ve bunlar yalnızca içe aktarılan tüm paketler başlatıldıktan sonra değerlendirilir.
+
+Bildirim olarak ifade edilemeyen tanımlamaların yanı sıra, `init` fonksiyonlarının yaygın bir kullanımı, gerçek yürütme başlamadan önce program durumunun doğruluğunu onaylamak veya onarmak içindir.
+
+```go
+func init() {
+    if user == "" {
+        log.Fatal("$USER not set")
+    }
+    if home == "" {
+        home = "/home/" + user
+    }
+    if gopath == "" {
+        gopath = home + "/go"
+    }
+    // gopath --gopath flag'i girilince ezilecektir.
+    flag.StringVar(&gopath, "gopath", gopath, "override default GOPATH")
+}
+```
+
+## Methodlar
+
+### İşaretçiler vs. Değerler
+
+`ByteSize` ile gördüğümüz gibi, herhangi bir adlandırılmış tür için methodlar tanımlanabilir _(işaretçi veya arabirim hariç)_; alıcının bir yapı _(struct)_ olması gerekmez.
+
+Yukarıdaki dilim tartışmasında, bir `Append` fonksiyonu yazdık. Bunun yerine dilimler üzerinde bir method olarak tanımlayabiliriz. Bunu yapmak için, önce methodu bağlayabileceğimiz adlandırılmış bir tür bildiririz ve ardından methodun alıcısını o türün bir değeri yaparız.
+
+```go
+type ByteSlice []byte
+
+func (slice ByteSlice) Append(data []byte) []byte {
+    // İçerik aslında yukarıdaki append fonksiyonu ile aynı olacak
+}
+```
+
+Bu, yine de methodun güncellenmiş dilimi döndürmesini gerektirir. Bir `ByteSlice`'a işaretçiyi alıcısı olarak alma methodunu yeniden tanımlayarak bu beceriksizliği ortadan kaldırabiliriz, böylece method arayanın diliminin üzerine yazabilir.
+
+```go
+func (p *ByteSlice) Append(data []byte) {
+    slice := *p
+    // içerik return olmadan yukarıdaki gibi
+    *p = slice
+}
+```
+
+Aslında daha da iyisini yapabiliriz. Fonksiyonumuzu standart bir `Write` yöntemi gibi görünecek şekilde değiştirirsek, aşağıdaki gibi,
+
+```go
+func (p *ByteSlice) Write(data []byte) (n int, err error) {
+    slice := *p
+    // tekrar yukarıdaki gibi.
+    *p = slice
+    return len(data), nil
+}
+```
+
+o zaman `*ByteSlice` türü kullanışlı olan standart `io.Writer` arabirimini karşılar. Örneğin, birine yazdırabiliriz.
+
+```go
+var b ByteSlice
+    fmt.Fprintf(&b, "This hour has %d days\n", 7)
+```
+
+Bir `ByteSlice` adresini iletiyoruz çünkü yalnızca `*ByteSlice` `io.Writer`'ı karşılıyor. Alıcılar için işaretçiler ve değerler hakkındaki kural, değer methodlarının işaretçiler ve değerler üzerinde çağrılabilmesi, ancak işaretçi methodlarının yalnızca işaretçiler üzerinde çağrılabilmesidir.
+
