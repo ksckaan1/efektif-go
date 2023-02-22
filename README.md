@@ -1146,3 +1146,52 @@ var b ByteSlice
 
 Bir `ByteSlice` adresini iletiyoruz çünkü yalnızca `*ByteSlice` `io.Writer`'ı karşılıyor. Alıcılar için işaretçiler ve değerler hakkındaki kural, değer methodlarının işaretçiler ve değerler üzerinde çağrılabilmesi, ancak işaretçi methodlarının yalnızca işaretçiler üzerinde çağrılabilmesidir.
 
+Bu kural, işaretçi methodlarının alıcıyı değiştirebilmesi nedeniyle ortaya çıkar; onları bir değer üzerinde çağırmak, methodun değerin bir kopyasını almasına neden olur, bu nedenle herhangi bir değişiklik yapılır. Dolayısıyla dil bu hatayı kabul etmez. Yine de kullanışlı bir istisna var. Değer adreslenebilir olduğunda, dil, adres işlecini _(&)_ otomatik olarak ekleyerek bir değer üzerinde bir işaretçi methodunu çağırmaya ilişkin genel durumla ilgilenir. Örneğimizde, `b` değişkeni adreslenebilir, yani sadece `b.Write` ile onun `Write` methodunu çağırabiliriz. Derleyici bunu bizim için `(&b).Write` olarak yeniden yazacak.
+
+Bu arada, bir bayt diliminde `Write` kullanma fikri, `bytes.Buffer` uygulamasının merkezinde yer alır.
+
+## Arabirimler _(Interfaces)_ ve Diğer Tipler
+
+### Arabirimler _(Interfaces)_
+
+Go'daki arabirimler, bir nesnenin davranışını belirlemenin yolunu sağlar: eğer bir şey bunu yapabiliyorsa, o zaman burada kullanılabilir mantığını sağlar. Zaten birkaç basit örnek gördük; özel yazıcılar _(writer)_ bir `String` methoduyla uygulanabilirken `Fprintf`, `Write` methoduyla her şeye çıktı üretebilir. Yalnızca bir veya iki methodu olan arabirimler Go kodunda yaygındır ve genellikle bu methoddan türetilen bir ad verilir, örneğin `Write`'ı uygulayan bir şey için `io.Writer`.
+
+Bir tür, birden çok arabirim uygulayabilir. Örneğin, bir koleksiyon, `Len()`, `Less(i, j int) bool` ve `Swap(i, j int)` içeren `sort.Interface` öğesini uygularsa, `sort` paketindeki yordamlara göre sıralanabilir ve ayrıca özel biçimlendiricisi vardır. Bu yapmacık örnekte `Sort` her ikisini de karşılar.
+
+```go
+type Sequence []int
+
+// sort.Interface için gerekli olan methodlar.
+func (s Sequence) Len() int {
+    return len(s)
+}
+func (s Sequence) Less(i, j int) bool {
+    return s[i] < s[j]
+}
+func (s Sequence) Swap(i, j int) {
+    s[i], s[j] = s[j], s[i]
+}
+
+// Asıl dilimin üzerine etki etmemesi için kopyalama methodu
+func (s Sequence) Copy() Sequence {
+    copy := make(Sequence, 0, len(s))
+    return append(copy, s...)
+}
+
+// Yazdırma için method - yazdırmadan önce elemanları sıralar.
+func (s Sequence) String() string {
+    s = s.Copy() // bir kopya oluştur; argümanın üzerine yazma.
+    sort.Sort(s)
+    str := "["
+    for i, elem := range s { // O(N²) (Düşündüğünüz şey değil); bir sonraki örnekte düzeltilecek.
+        if i > 0 {
+            str += " "
+        }
+        str += fmt.Sprint(elem)
+    }
+    return str + "]"
+}
+```
+_(Çevirmen açıklaması: O(N²) düşündüğünüz şey değil demektir.)_
+
+
