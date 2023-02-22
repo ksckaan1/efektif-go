@@ -8,7 +8,7 @@ Go yeni bir dildir. Mevcut dillerden fikirler ödünç almasına rağmen, efekti
 
 Bu belge, anlaşılır _(temiz)_, deyimsel Go kodu yazmak için ipuçları verir ve [dil belirtimi](https://go.dev/ref/spec), [Go Turu](https://go.dev/tour/welcome/1) ve [Go Kodu Nasıl Yazılır?](https://go.dev/doc/code.html) gibi konuların genişletilmiş halini içerir.
 
-Ocak 2022'de eklenen not: Bu belge, Go'nun 2009'da piyasaya sürülmesi için yazılmıştır ve o zamandan beri önemli ölçüde güncellenmemiştir. Dilin kendisinin nasıl kullanılacağını anlamak için iyi bir rehber olmasına rağmen, dilin kararlılığı sayesinde kütüphaneler hakkında çok az şey söylüyor ve yazıldığından bu yana Go ekosisteminde yapılan derleme sistemi, test etme, modüller ve polimorfizm gibi önemli değişiklikler hakkında hiçbir şey söylemiyor. Buradaki bilgiler okuyucuya faydalı olacaktır fakat yazılanlar eksiksiz olmadığını anlamanızda fayda var. Bu konu hakkında bir açıklama için Rob Pike'ın açtığı issue olan [bu adresi](https://github.com/golang/go/issues/28782) ziyaret edebilirsiniz. _(Kısaca, kütüphaneler üzerinden konuşmanın, başlangıçta Go'yu anlatmanın doğru bir yolu olmadığından bahsediyor.)_
+Ocak 2022'de eklenen not: Bu belge, Go'nun 2009'da piyasaya sürülmesi için yazılmıştır ve o zamandan beri önemli ölçüde güncellenmemiştir. Dilin kendisinin nasıl kullanılacağını anlamak için iyi bir rehber olmasına rağmen, dilin kararlılığı sayesinde kütüphaneler hakkında çok az şey söylüyor ve yazıldığından bu yana Go ekosisteminde yapılan derleme sistemi, test etme, modüller ve polimorfizm gibi önemli değişiklikler hakkında hiçbir şey söylemiyor. Buradaki bilgiler okuyucuya faydalı olacaktır fakat yazılanların eksiksiz olmadığını anlamanızda fayda var. Bu konu hakkında bir açıklama için Rob Pike'ın açtığı issue olan [bu adresi](https://github.com/golang/go/issues/28782) ziyaret edebilirsiniz. _(Kısaca, kütüphaneler üzerinden konuşmanın, başlangıçta Go'yu anlatmanın doğru bir yolu olmadığından bahsediyor.)_
 
 ### Örnekler
 
@@ -620,6 +620,33 @@ m := map[int]string{Enone: "hata yok", Eio: "Eio", Einval: "geçersiz argüman"}
 ```
 
 ### make ile Tahsis Etme
+Tahsis etmeye geri dönelim. Yerleşik fonksiyon olan  `make(T, args)`, `new(T)`'den farklı bir amaca hizmet eder. Yalnızca dilimler _(slices)_, haritalar _(maps)_ ve kanallar _(channels)_ oluşturur ve T türünde _(*T değil)_ başlatılmış (sıfırlanmamış) bir değer döndürür. Ayrımın nedeni, bu üç türün aslında kullanımdan önce başlatılması gereken veri yapılarına referansları temsil etmesidir. Örneğin bir dilim _(slice)_, verilere `(bir dizi içinde)`, uzunluk _(len)_ ve kapasiteye _(cap)_ yönelik bir işaretçi içeren üç öğeli bir tanımlayıcıdır. Bu öğeler başlatılıncaya kadar dilim _(slice)_ sıfırdır. Dilimler _(slices)_, haritalar _(maps)_ ve kanallar _(channels)_ için `make`, dahili veri yapısını başlatır ve değeri kullanıma hazırlar. Örneğin,
+
+```go
+make([]int, 10, 100)
+```
+
+100 int'lik bir dizi (array) ayırır ve ardından dizinin ilk 10 öğesini işaret eden 10 uzunluğunda ve 100 kapasiteli bir dilim yapısı oluşturur. _(Bir dilim oluşturulurken kapasite atlanabilir; daha fazla bilgi için dilimler bölümüne bakın.)_ Buna karşılık, `new([]int)` yeni tahsis edilmiş, sıfırlanmamış olarak, yani sadece bir işaretçi döndürür.
+
+Bu örnekler, `new` ve `make` arasındaki farkı göstermektedir.
+
+```go
+var p *[]int = new([]int)       // bir dilim yapısı tahsis eder; *p == nil; nadiren kullanışlıdır
+var v  []int = make([]int, 100) // v dilimi şimdi 100 int'lik yeni bir diziye atıfta bulunuyor
+
+// Gereksiz karışıklık:
+var p *[]int = new([]int)
+*p = make([]int, 100, 100)
+
+// Deyimsel (mantıklı):
+v := make([]int, 100)
+```
+
+`make` öğesinin yalnızca haritalar _(maps)_, dilimler _(slices)_ ve kanallar _(channels)_ için geçerli olduğunu ve bir işaretçi döndürmediğini unutmayın. Açık bir işaretçi elde etmek için `new` ile tahsis edin veya bir değişkenin adresini açıkça alın.
+
+### Diziler (Arrays)
+
+Diziler _(arrays)_, ayrıntılı bellek düzenini planlarken kullanışlıdır ve bazen ayırmayı _(tahsisi)_ önlemeye yardımcı olabilir, ancak öncelikle bir sonraki bölümün konusu olan dilimler _(slices)_ için bir yapı taşıdır. Bu konunun temellerini atmak için diziler _(arrays)_ hakkında birkaç kelimeyi burada bulabilirsiniz.
 
 
 
