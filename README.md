@@ -620,7 +620,7 @@ m := map[int]string{Enone: "hata yok", Eio: "Eio", Einval: "geçersiz argüman"}
 ```
 
 ### make ile Tahsis Etme
-Tahsis etmeye geri dönelim. Yerleşik fonksiyon olan  `make(T, args)`, `new(T)`'den farklı bir amaca hizmet eder. Yalnızca dilimler _(slices)_, haritalar _(maps)_ ve kanallar _(channels)_ oluşturur ve T türünde _(*T değil)_ başlatılmış (sıfırlanmamış) bir değer döndürür. Ayrımın nedeni, bu üç türün aslında kullanımdan önce başlatılması gereken veri yapılarına referansları temsil etmesidir. Örneğin bir dilim _(slice)_, verilere `(bir dizi içinde)`, uzunluk _(len)_ ve kapasiteye _(cap)_ yönelik bir işaretçi içeren üç öğeli bir tanımlayıcıdır. Bu öğeler başlatılıncaya kadar dilim _(slice)_ sıfırdır. Dilimler _(slices)_, haritalar _(maps)_ ve kanallar _(channels)_ için `make`, dahili veri yapısını başlatır ve değeri kullanıma hazırlar. Örneğin,
+Tahsis etmeye geri dönelim. Yerleşik fonksiyon olan  `make(T, args)`, `new(T)`'den farklı bir amaca hizmet eder. Yalnızca dilimler _(slices)_, eşlemeler _(maps)_ ve kanallar _(channels)_ oluşturur ve T türünde _(*T değil)_ başlatılmış (sıfırlanmamış) bir değer döndürür. Ayrımın nedeni, bu üç türün aslında kullanımdan önce başlatılması gereken veri yapılarına referansları temsil etmesidir. Örneğin bir dilim _(slice)_, verilere `(bir dizi içinde)`, uzunluk _(len)_ ve kapasiteye _(cap)_ yönelik bir işaretçi içeren üç öğeli bir tanımlayıcıdır. Bu öğeler başlatılıncaya kadar dilim _(slice)_ sıfırdır. Dilimler _(slices)_, eşlemeler _(maps)_ ve kanallar _(channels)_ için `make`, dahili veri yapısını başlatır ve değeri kullanıma hazırlar. Örneğin,
 
 ```go
 make([]int, 10, 100)
@@ -648,5 +648,333 @@ v := make([]int, 100)
 
 Diziler _(arrays)_, ayrıntılı bellek düzenini planlarken kullanışlıdır ve bazen ayırmayı _(tahsisi)_ önlemeye yardımcı olabilir, ancak öncelikle bir sonraki bölümün konusu olan dilimler _(slices)_ için bir yapı taşıdır. Bu konunun temellerini atmak için diziler _(arrays)_ hakkında birkaç kelimeyi burada bulabilirsiniz.
 
+Dizilerin Go ve C'de çalışma biçimleri arasında büyük farklılıklar vardır. Go'da,
 
+- Diziler değerlerdir. Bir diziyi diğerine atamak tüm öğeleri kopyalar.
+- Özellikle, bir diziyi bir fonksiyona iletirseniz, dizinin bir işaretçisini değil, bir kopyasını alır.
+- Bir dizinin boyutu, türünün bir parçasıdır. [10]int ve [20]int türleri farklıdır.
 
+**value** özelliği yararlı olabilir ama aynı zamanda pahalı olabilir; C benzeri davranış ve verimlilik istiyorsanız, diziye bir işaretçi iletebilirsiniz.
+
+```go
+func Sum(a *[3]float64) (sum float64) {
+    for _, v := range *a {
+        sum += v
+    }
+    return
+}
+
+array := [...]float64{7.0, 8.5, 9.1}
+x := Sum(&array)  // Adresini verelim
+```
+Ama bu tarz bile deyimsel Go değil. Bunun yerine dilimleri _(slices)_ kullanın.
+
+### Dilimler (Slices)
+
+Dilimler, veri dizilerine daha genel, güçlü ve kullanışlı bir arabirim sağlamak için dizileri sarar. Dönüşüm matrisleri gibi açık boyutu olan öğeler dışında, Go'daki dizi programlamanın çoğu basit diziler yerine dilimlerle yapılır.
+
+Dilimler, altta yatan bir diziye referanslar tutar ve bir dilimi diğerine atarsanız, her ikisi de aynı diziye başvurur. Bir fonksiyon, bir dilim bağımsız değişkeni alırsa, dilimin öğelerinde yaptığı değişiklikler, alttaki diziye bir işaretçi iletmeye benzer şekilde çağıran tarafından görülebilir. Bu nedenle bir `Read` fonksiyonu, bir işaretçi ve bir sayı yerine bir dilim bağımsız değişkenini kabul edebilir; dilim içindeki uzunluk, okunacak veri miktarının üst sınırını belirler. İşte `package os`'taki `File` type'ın `Read` methodunun imzası:
+
+```go
+func (f *File) Read(buf []byte) (n int, err error)
+```
+Method, okunan bayt sayısını ve varsa bir hata değeri döndürür. Daha büyük bir arabelleğinin _(buf)_ ilk 32 baytını okumak için, arabelleği dilimleyin _(burada bir fiil olarak kullanılır)_.
+
+```go
+n, err := f.Read(buf[0:32])
+```
+Bu tür dilimleme yaygın ve verimlidir. Aslında verimliliği bir an için bir kenara bırakırsak, aşağıdaki kod parçası arabelleğin ilk 32 baytını da okuyacaktı.
+
+```go
+var n int
+var err error
+for i := 0; i < 32; i++ {
+	nbytes, e := f.Read(buf[i:i+1])  // bir byte oku.
+	n += nbytes
+	if nbytes == 0 || e != nil {
+		err = e
+		break
+	}
+}
+```
+
+Bir dilimin uzunluğu, alttaki dizinin sınırları içinde kaldığı sürece değiştirilebilir; sadece kendisinin bir dilimine atayın. Yerleşik fonksiyon başlığıyla erişilebilen bir dilimin kapasitesi, dilimin alabileceği maksimum uzunluğu bildirir. İşte bir dilime veri eklemek için bir fonksiyon. Veri kapasiteyi aşarsa, dilim yeniden tahsis edilir. Ortaya çıkan dilim döndürülür. Fonksiyon, sıfır dilimine uygulandığında `len` ve `cap`'in geçerli olduğu gerçeğini kullanır ve `0` döndürür.
+
+```go
+func Append(slice, data []byte) []byte {
+    l := len(slice)
+    if l + len(data) > cap(slice) {  // yeniden tahsis etme
+		// Gelecekteki büyüme için gerekenin iki katını tahsis edin.
+        newSlice := make([]byte, (l+len(data))*2)
+        // copy fonksiyonu önceden bildirilir ve herhangi bir dilim türü için çalışır.
+        copy(newSlice, slice)
+        slice = newSlice
+    }
+    slice = slice[0:l+len(data)]
+    copy(slice[l:], data)
+    return slice
+}
+```
+
+Dilimi daha sonra döndürmeliyiz çünkü `Append` dilimin öğelerini değiştirebilse de `slice`'ın kendisi _(işaretçiyi, uzunluğu ve kapasiteyi tutan çalışma zamanı (runtime) veri yapısı)_ değere göre geçirilir.
+
+Bir dilime ekleme fikri o kadar kullanışlıdır ki, yerleşik ekleme fonksiyonu tarafından ilgilenilir. Bu fonksiyonun tasarımını anlamak için biraz daha bilgiye ihtiyacımız var, bu yüzden ona daha sonra döneceğiz.
+
+### İki Boyutlu Dilimler
+
+Go'nun dizileri ve dilimleri tek boyutludur. Bir 2B dizi veya dilimin eşdeğerini oluşturmak için, bir diziler dizisi veya dilimler dilimi tanımlamak gerekir, bunun gibi:
+
+```go
+type Transform [3][3]float64  // 3x3'lük bir dizi, gerçekten bir dizi dizisi.
+type LinesOfText [][]byte     // Bir byte dilimleri dilimi.
+```
+Dilimler değişken uzunlukta olduğundan, her bir iç dilimin farklı uzunlukta olması mümkündür. Bu, `LinesOfText` örneğimizde olduğu gibi yaygın bir durum olabilir: her satırın bağımsız bir uzunluğu vardır.
+
+```go
+text := LinesOfText{
+    []byte("Now is the time"),
+    []byte("for all good gophers"),
+    []byte("to bring some fun to the party."),
+}
+```
+
+Bazen, örneğin piksel tarama satırlarını işlerken ortaya çıkabilecek bir durum olan bir 2B dilimi tahsis etmek gerekir. Bunu başarmanın iki yolu var. Birincisi, her dilimi bağımsız olarak tahsis etmektir; diğeri, tek bir dizi tahsis etmek ve tek tek dilimleri bunun içine işaret etmektir. Hangisinin kullanılacağı uygulamanıza bağlıdır. Dilimler büyüyebilir veya küçülebilirse, bir sonraki satırın üzerine yazılmasını önlemek için bağımsız olarak tahsis edilmelidir; değilse, nesneyi tek bir tahsisle oluşturmak daha verimli olabilir. Başvuru için, burada iki yöntemin eskizleri bulunmaktadır. İlk olarak, her seferinde bir satır:
+
+```go
+// Üst-seviye bir dilim tahsis et.
+picture := make([][]uint8, YSize) // her y birimi için bir satır.
+// Dilimleri her satıra ayırarak satırlar üzerinde döngü yapın.
+for i := range picture {
+    picture[i] = make([]uint8, XSize)
+}
+```
+
+Ve şimdi satırlara bölünmüş tek bir tahsis olarak:
+
+```go
+// Önceki ile aynı olarak, üst seviye bir dilim tahsis et.
+picture := make([][]uint8, YSize) // her y birimi için bir satır.
+// tüm pixelleri tutmak için büyük bir dilim tahsis et.
+pixels := make([]uint8, XSize*YSize) // Resim [][]uint8 olmasına rağmen []uint8 tipine sahip.
+// Kalan piksel diliminin önünden her satırı dilimleyerek satırlar üzerinde döngü yapın.
+for i := range picture {
+    picture[i], pixels = pixels[:XSize], pixels[XSize:]
+}
+```
+
+### Eşlemeler (Maps)
+
+Eşlemeler _(maps)_, bir türdeki _(anahtar)_ değerleri başka bir türdeki _(öğe veya değer)_ değerlerle ilişkilendiren kullanışlı ve güçlü yerleşik bir veri yapısıdır. Anahtar, tamsayılar, kayan noktalı ve karmaşık sayılar, dizeler, işaretçiler, arabirimler _(interfaces)_ _(dinamik tür eşitliği desteklediği sürece)_, yapılar ve diziler gibi eşitlik operatörünün tanımlandığı herhangi bir tür olabilir. Dilimler üzerinde eşitlik tanımlanmadığından eşleme anahtarı olarak kullanılamazlar. Dilimler gibi, eşlemeler de altta yatan bir veri yapısına referanslar içerir. Bir eşlemeyi, eşlemenin içeriğini değiştiren bir fonksiyona iletirseniz, değişiklikler çağıranda görünür olacaktır.
+
+Eşlemeler, iki nokta üst üste ile ayrılmış anahtar/değer çiftleri ile olağan bileşik hazır bilgi sözdizimi kullanılarak oluşturulabilir, bu nedenle başlatma sırasında bunları oluşturmak kolaydır.
+
+```go
+var timeZone = map[string]int{
+    "UTC":  0*60*60,
+    "EST": -5*60*60,
+    "CST": -6*60*60,
+    "MST": -7*60*60,
+    "PST": -8*60*60,
+}
+```
+
+Eşleme değerleri atamak ve getirmek sözdizimsel olarak anahtarın bir tamsayı olması gerekmemesi dışında diziler ve dilimler için aynı şeyi yapmak gibi görünür.
+
+```go
+offset := timeZone["EST"]
+```
+
+Eşlemede bulunmayan bir anahtarla bir eşleme değeri getirme girişimi, eşlemedeki girişlerin türü için sıfır değerini döndürür. Örneğin, eşleme tamsayılar içeriyorsa, var olmayan bir anahtarın aranması 0 değerini döndürür. Bir küme, `bool` değer türüyle bir eşleme olarak uygulanabilir. Değeri kümeye koymak için eşleme girişini `true` olarak ayarlayın ve ardından basit indeksleme ile test edin.
+
+```go
+attended := map[string]bool{
+    "Ann": true,
+    "Joe": true,
+    ...
+}
+
+if attended[person] { // person eşlemede bulunmuyorsa false dönecektir
+    fmt.Println(person, "buluşmadaydı")
+}
+```
+
+Bazen eksik bir girişi sıfır değerinden ayırmanız gerekir. `"UTC"` için bir giriş var mı yoksa eşlemede hiç olmadığı için `0` mı? Çoklu atama şeklinde ayrımını yapabilirsiniz.
+
+```go
+var seconds int
+var ok bool
+seconds, ok = timeZone[tz]
+```
+
+Bariz nedenlerden dolayı buna **“comma ok”** _(virgül tamam)_ deyimi denir. Bu örnekte, `tz` mevcutsa, saniyeler uygun şekilde ayarlanacak ve `ok` `true` olacaktır; değilse, saniye sıfıra ayarlanır ve `ok` `false` olur. İşte onu güzel bir hata raporuyla bir araya getiren bir fonksiyon:
+
+```go
+func offset(tz string) int {
+    if seconds, ok := timeZone[tz]; ok {
+        return seconds
+    }
+    log.Println("unknown time zone:", tz)
+    return 0
+}
+```
+
+Gerçek değer hakkında endişelenmeden eşlemede var olup olmadığını test etmek için, değer için olağan değişken yerine [boş tanımlayıcıyı (_)](change) kullanabilirsiniz.
+
+```go
+_, present := timeZone[tz]
+```
+
+Bir eşleme girdisini silmek için argümanları silinecek eşleme ve anahtar olan yerleşik silme fonksiyonunu kullanın. Anahtar zaten eşlemede olmasa bile bunu yapmak güvenlidir.
+
+```go
+delete(timeZone, "PDT")  // Şimdi standart saatte
+```
+
+### Yazdırma
+
+Go'da biçimlendirilmiş yazdırma, C'nin `printf` ailesine benzer bir stil kullanır ancak daha zengin ve daha geneldir. Fonksiyonlar `fmt` paketinde bulunur ve adları büyük harfle yazılır: `fmt.Printf`, `fmt.Fprintf`, `fmt.Sprintf` vb. Dize _(String)_ fonksiyonları _(Sprintf vb.)_, sağlanan bir arabelleği doldurmak yerine bir dize _(string)_ döndürür.
+
+Bir biçim dizesi _(string'i)_ sağlamanız gerekmez. `Printf`, `Fprintf` ve `Sprintf`'in her biri için başka bir fonksiyon çifti vardır, örneğin `Print` ve `Println`. Bu fonksiyonlar bir biçim dizesi almaz, bunun yerine her bağımsız değişken için varsayılan bir biçim oluşturur. `Println` içerisine değer verildiğinde ayrıca bağımsız değişkenler arasına bir boşluk ekler ve çıktıya yeni bir satır eklerken, `Print` sürümleri yalnızca işlenen her iki tarafta da bir dize değilse boşluk ekler. Bu örnekte her satır aynı çıktıyı üretir.
+
+```go
+fmt.Printf("Hello %d\n", 23)
+fmt.Fprint(os.Stdout, "Hello ", 23, "\n")
+fmt.Println("Hello", 23)
+fmt.Println(fmt.Sprint("Hello ", 23))
+```
+
+Biçimlendirilmiş yazdırma fonksiyonları `fmt.Fprint` ve arkadaşları, `io.Writer` arabirimini uygulayan herhangi bir nesneyi ilk argüman olarak alır; `os.Stdout` ve `os.Stderr` değişkenleri bilinen örneklerdir.
+
+Burada işler C'den sapmaya başlar. İlk olarak, `%d` gibi sayısal biçimler imza veya boyut için bayrak almaz; bunun yerine yazdırma yordamları, bu özelliklere karar vermek için bağımsız değişkenin türünü kullanır.
+
+```go
+var x uint64 = 1<<64 - 1
+fmt.Printf("%d %x; %d %x\n", x, x, int64(x), int64(x))
+```
+
+aşağıdaki çıktıyı verir,
+
+```
+18446744073709551615 ffffffffffffffff; -1 -1
+```
+
+Tamsayılar için ondalık gibi yalnızca varsayılan dönüştürmeyi istiyorsanız, `%v` _(value'nun v'si)_ tümünü yakalama biçimini kullanabilirsiniz; sonuç tam olarak `Print` ve `Println`'in üreteceği şeydir. Ayrıca, bu format herhangi bir değeri, hatta dizileri, dilimleri, yapıları ve eşlemeleri yazdırabilir. Burada, önceki bölümde tanımlanan saat dilimi eşlemesi için bir `print` ifadesi bulunmaktadır.
+
+```go
+fmt.Printf("%v\n", timeZone)  // ya da sadece fmt.Println(timeZone)
+```
+
+aşağıdaki çıktıyı verir,
+
+```
+map[CST:-21600 EST:-18000 MST:-25200 PST:-28800 UTC:0]
+```
+
+Eşlemeler için, `Printf` ve arkadaşları çıktıyı sözlüksel olarak anahtara göre sıralar.
+
+Bir yapı yazdırılırken, değiştirilmiş biçim `%+v`, yapının alanlarına adlarıyla açıklama ekler ve herhangi bir değer için alternatif biçim `%#v`, değeri tam Go sözdiziminde yazdırır.
+
+```go
+type T struct {
+    a int
+    b float64
+    c string
+}
+t := &T{ 7, -2.35, "abc\tdef" }
+fmt.Printf("%v\n", t)
+fmt.Printf("%+v\n", t)
+fmt.Printf("%#v\n", t)
+fmt.Printf("%#v\n", timeZone)
+```
+
+aşağıdaki çıktıyı verir,
+
+```
+&{7 -2.35 abc   def}
+&{a:7 b:-2.35 c:abc     def}
+&main.T{a:7, b:-2.35, c:"abc\tdef"}
+map[string]int{"CST":-21600, "EST":-18000, "MST":-25200, "PST":-28800, "UTC":0}
+```
+
+_(Ampersand '&' işaretine dikkat edin.)_ Bu alıntılanan `string` biçimi, `string` veya `[]byte` türünde bir değere uygulandığında `%q` yoluyla da kullanılabilir. Alternatif biçim `%#q`, mümkünse bunun yerine ters tırnak kullanır. _(`%q` biçimi aynı zamanda tamsayılar _(int)_ ve rünler (rune) için de geçerlidir ve tek tırnaklı bir rune sabiti üretir.)_ Ayrıca, `%x` string'ler (dizeler), bayt dizileri ve bayt dilimleri üzerinde olduğu kadar tamsayılar üzerinde de çalışır, uzun bir onaltılık dize ve bir boşluk oluşturur _(% x)_ biçiminde baytlar arasına boşluk koyar.
+
+Başka bir kullanışlı biçim, bir değerin türünü yazdıran `%T`'dir.
+
+```go
+fmt.Printf("%T\n", timeZone)
+```
+
+aşağıdaki çıktıyı verir,
+
+```
+map[string]int
+```
+
+Özel bir tür için varsayılan biçimi kontrol etmek istiyorsanız, tüm yapmanız gereken, tür üzerinde imza `String()` dizesiyle bir yöntem tanımlamaktır. Basit `T` tipimiz için bu şöyle görünebilir.
+
+```go
+func (t *T) String() string {
+    return fmt.Sprintf("%d/%g/%q", t.a, t.b, t.c)
+}
+fmt.Printf("%v\n", t)
+```
+
+aşağıdaki sonucu verir,
+
+```
+7/-2.35/"abc\tdef"
+```
+
+_(`T` tipi değerlerin yanı sıra `T` işaretçilerini de yazdırmanız gerekiyorsa, `String` alıcısı değer türünde olmalıdır; bu örnek, yapı türleri için daha verimli ve deyimsel olduğu için bir işaretçi kullanmıştır. Daha fazla bilgi için [işaretçiler vs. değer alıcıları](change) bölümüne bakın.)_
+
+`String` methodumuz `Sprintf`'i çağırabilir çünkü yazdırma yordamları tamamen yeniden girilebilir ve bu şekilde sarılabilir. Bununla birlikte, bu yaklaşımla ilgili anlaşılması gereken önemli bir ayrıntı vardır: `Sprintf`'i, `String` methodunuza süresiz olarak tekrarlanacak şekilde çağırarak bir `String` methodu oluşturmayın. Bu, `Sprintf` çağrısı alıcıyı doğrudan bir dizi olarak yazdırmaya çalışırsa, bu da methodu tekrar çağırırsa olabilir. Bu örneğin gösterdiği gibi, yaygın ve yapılması kolay bir hatadır.
+
+```go
+func (m MyString) String() string {
+    return fmt.Sprintf("MyString=%s", m) // Hata: sonsuza kadar sürer.
+}
+```
+
+Düzeltmesi de kolaydır: bağımsız değişkeni, methodu olmayan temel dize (string) türüne dönüştürün.
+
+```go
+type MyString string
+func (m MyString) String() string {
+    return fmt.Sprintf("MyString=%s", string(m)) // OK: ilkel string'e dönüştürün.
+}
+```
+
+[Atama bölümü](change)nde, bu yinelemeyi önleyen başka bir teknik göreceğiz.
+
+Başka bir yazdırma tekniği, bir yazdırma rutininin argümanlarını doğrudan başka bir rutine iletmektir. `Printf`'in imzası, formattan sonra rastgele sayıda parametrenin (isteğe bağlı türde) görünebileceğini belirtmek için son bağımsız değişkeni olarak `...interface{}` türünü kullanır.
+
+```go
+func Printf(format string, v ...interface{}) (n int, err error) {
+```
+
+`Printf` fonksiyonunda `v`, `[]interface{}` türünde bir değişken gibi davranır, ancak başka bir değişken fonksiyona iletilirse, normal bir bağımsız değişken listesi gibi davranır. İşte yukarıda kullandığımız `log.Println` fonksiyonunun uygulaması. Gerçek biçimlendirme için bağımsız değişkenlerini doğrudan `fmt.Sprintln`'e iletir.
+
+```go
+// Println, standart logger'a fmt.Println biçiminde yazdırır.
+func Println(v ...interface{}) {
+    std.Output(2, fmt.Sprintln(v...))  // output (int, string) şeklinde iki parametre alır.
+}
+```
+
+Derleyiciye `v`'yi bir bağımsız değişkenler listesi olarak ele almasını söylemek için `Sprintln`'e iç içe çağrıda `v`'den sonra `...` yazarız; aksi takdirde `v`'yi tek bir dilim bağımsız değişkeni olarak iletirdi
+
+Yazdırmak için burada ele aldığımızdan daha fazlası var. Ayrıntılar için `fmt` paketi için `godoc` belgelerine bakın.
+
+Bu arada, bir `...` parametresi belirli bir türde olabilir, örneğin bir tamsayı listesinden en azını seçen bir `min` fonksiyonu için `...int`:
+
+```go
+func Min(a ...int) int {
+    min := int(^uint(0) >> 1)  // en büyük int
+    for _, i := range a {
+        if i < min {
+            min = i
+        }
+    }
+    return min
+}
+```
