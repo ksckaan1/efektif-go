@@ -1194,4 +1194,120 @@ func (s Sequence) String() string {
 ```
 _(Çevirmen açıklaması: O(N²) düşündüğünüz şey değil demektir.)_
 
+### Dönüşümler (Conversions)
 
+`Squence`'ın `String` methodu, `Sprint`'in zaten dilimler için yaptığı işi yeniden yaratıyor. `Sprint`'i çağırmadan önce `Squence`'ı düz bir `[]int`'e dönüştürürsek çabayı paylaşabiliriz _(ve ayrıca hızlandırabiliriz)_.
+
+```go
+func (s Sequence) String() string {
+    s = s.Copy()
+    sort.Sort(s)
+    return fmt.Sprint([]int(s))
+}
+```
+
+Bu method, `Sprintf`'i bir `String` methodundan güvenli bir şekilde çağırmak için dönüştürme tekniğinin başka bir örneğidir. İki tür _(`Sequence` ve `[]int`)_ aynı olduğundan, tür adını yoksayarsak, aralarında dönüştürme yapmak yasaldır. Dönüştürme yeni bir değer yaratmaz, sadece geçici olarak mevcut değerin yeni bir türü varmış gibi davranır. _(Tamsayıdan küsüratlıya gibi, yeni bir değer oluşturan başka yasal dönüştürmeler de vardır.)_
+
+Farklı bir method kümesine erişmek için bir ifadenin türünü dönüştürmek Go programlarında kullanılan bir deyimdir. Örnek olarak, tüm örneği şuna indirgemek için mevcut `sort.IntSlice` türünü kullanabiliriz:
+
+```go
+type Sequence []int
+
+// Yazdırmak için method - yazdırmadan önce elemanları sıralar
+func (s Sequence) String() string {
+    s = s.Copy()
+    sort.IntSlice(s).Sort()
+    return fmt.Sprint([]int(s))
+}
+```
+
+Şimdi, `Sequence`'ın birden çok arabirim _(interface) (sıralama ve yazdırma)_ uygulamasına sahip olmak yerine, bir veri öğesinin birden çok türe _(`Sequence`, `sort.IntSlice` ve `[]int`)_ dönüştürülebilme özelliğini kullanıyoruz. Bu pratikte daha sıra dışı ama etkili olabilir.
+
+### Arabirim Dönüştürmeleri ve Tip Doğrulamaları
+
+[Tip anahtarları](change) bir dönüştürme biçimidir: bir arabirim _(her tip olabilir)_ alırlar ve anahtardaki her durum için onu bir anlamda o durumun türüne dönüştürürler. İşte `fmt.Printf` altındaki kodun bir tip anahtarını kullanarak bir değeri nasıl bir dizeye _(string)_ dönüştürdüğünün basitleştirilmiş bir versiyonu. Zaten bir dize ise, arabirim tarafından tutulan gerçek dize değerini isteriz, bir `String` methodu varsa, methodu çağırmanın sonucunu isteriz.
+
+```go
+type Stringer interface {
+    String() string
+}
+
+var value interface{} // Value cağıran tarafından verilmiş.
+switch str := value.(type) {
+case string:
+    return str
+case Stringer:
+    return str.String()
+}
+```
+
+Birinci durum somut bir değer bulur; ikincisi arabirimi başka bir arabirime dönüştürür.
+
+Türleri bu şekilde karıştırmak gayet iyi. Ya önemsediğimiz tek bir tür varsa? Değerin bir dize tuttuğunu biliyorsak ve sadece onu çıkarmak istiyorsak?
+
+Tek durum tipi bir anahtar işe yarar, ancak bir tip iddiası da olur. Bir tür doğrulaması, bir arabirim değeri alır ve ondan belirtilen açık türün bir değerini çıkarır. Sözdizimi, bir tür anahtarını açan yan tümceden ödünç alır, ancak `type` anahtar sözcüğü yerine açık bir türle:
+
+```go
+value.(typeName)
+```
+
+ve sonuç, `typeName` statik türüne sahip yeni bir değerdir. Bu tür, arabirim tarafından tutulan somut tür veya değerin dönüştürülebileceği ikinci bir arabirim türü olmalıdır. Değerde olduğunu bildiğimiz dizgiyi çıkarmak için şunu yazabiliriz:
+
+```go
+str := value.(string)
+```
+
+Ancak değerin bir dize _(string)_ içermediği ortaya çıkarsa, program çalışma zamanı hatası vererek çöker. Buna karşı korunmak için, değerin bir dize olup olmadığını güvenli bir şekilde test etmek için "virgül, ok" _(comma ok)_ deyimini kullanın:
+
+```go
+str, ok := value.(string)
+if ok {
+    fmt.Printf("string değer: %q\n", str)
+} else {
+    fmt.Printf("değer string değil\n")
+}
+```
+
+Tip doğrulaması başarısız olursa, `str` hala var olacak ve `string` türünde olacak, ancak sıfır değerine, boş bir dizeye sahip olacak.
+
+Yeteneğin bir örneği olarak, bu bölümü açan tür anahtarına eşdeğer bir **if-else** ifadesi aşağıda verilmiştir.
+
+```go
+if str, ok := value.(string); ok {
+    return str
+} else if str, ok := value.(Stringer); ok {
+    return str.String()
+}
+```
+
+### Genellik
+
+Bir tür yalnızca bir arabirim uygulamak için varsa ve hiçbir zaman bu arabirimin ötesinde dışa aktarılan methodlara sahip olmayacaksa, türün kendisini dışa aktarmaya gerek yoktur. Yalnızca arabirimi dışa aktarmak, değerin arabirimde açıklananın ötesinde ilginç bir davranışa sahip olmadığını açıkça ortaya koyar. Ayrıca, ortak bir methodun her örneğinde belgeleri tekrar etme ihtiyacını da ortadan kaldırır.
+
+Bu gibi durumlarda, yapıcı _(contructor)_, uygulama türü yerine bir arabirim değeri döndürmelidir. Örnek olarak, `hash` kitaplıklarında hem `crc32.NewIEEE` hem de `adler32.New` `hash.Hash32` arabirim tipini döndürür. Bir Go programında `Adler-32` yerine `CRC-32` algoritmasının kullanılması, yalnızca yapıcı çağrısının değiştirilmesini gerektirir; kodun geri kalanı algoritma değişikliğinden etkilenmez.
+
+Benzer bir yaklaşım, çeşitli `crypto` paketlerindeki akış şifreleme algoritmalarının, birlikte zincirledikleri blok şifrelerden ayrılmasını sağlar. `crypto/cipher` paketindeki `Block` arabirimi, tek bir veri bloğunun şifrelenmesini sağlayan bir blok şifrenin davranışını belirtir. Ardından, `bufio` paketine benzetilerek, bu arabirimi uygulayan şifre paketleri, blok şifrelemenin ayrıntılarını bilmeden `Stream` arabirimi tarafından temsil edilen `stream` şifrelerini oluşturmak için kullanılabilir.
+
+`crypto/cipher` arabirimleri şöyle görünür:
+
+```go
+type Block interface {
+    BlockSize() int
+    Encrypt(dst, src []byte)
+    Decrypt(dst, src []byte)
+}
+
+type Stream interface {
+    XORKeyStream(dst, src []byte)
+}
+```
+
+`Block` şifreyi `stream` şifresine dönüştüren sayaç modu (CTR) `stream`'inin tanımı şöyledir; blok şifresinin ayrıntılarının soyutlandığına dikkat edin:
+
+```go
+// NewCTR, sayaç modunda verilen Block'u kullanan encrypts/decrypts Stream'ini döner.
+// iv'nin uzunluğu Block'un blok boyutu ile aynı olmalıdır.
+func NewCTR(block Block, iv []byte) Stream
+```
+
+`NewCTR`, yalnızca belirli bir şifreleme algoritması ve veri kaynağı için değil, `Block` arabiriminin ve herhangi bir `Stream`'in herhangi bir uygulaması için geçerlidir. Arabirim değerleri döndürdükleri için, `CTR` şifrelemesini diğer şifreleme modlarıyla değiştirmek yerelleştirilmiş bir değişikliktir. Yapıcı çağrıları düzenlenmelidir, ancak çevreleyen kod sonucu yalnızca bir `Stream` olarak ele alması gerektiğinden, farkı fark etmeyecektir.
