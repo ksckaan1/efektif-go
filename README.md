@@ -1311,3 +1311,111 @@ func NewCTR(block Block, iv []byte) Stream
 ```
 
 `NewCTR`, yalnızca belirli bir şifreleme algoritması ve veri kaynağı için değil, `Block` arabiriminin ve herhangi bir `Stream`'in herhangi bir uygulaması için geçerlidir. Arabirim değerleri döndürdükleri için, `CTR` şifrelemesini diğer şifreleme modlarıyla değiştirmek yerelleştirilmiş bir değişikliktir. Yapıcı çağrıları düzenlenmelidir, ancak çevreleyen kod sonucu yalnızca bir `Stream` olarak ele alması gerektiğinden, farkı fark etmeyecektir.
+
+### Arayüzler (Interfaces) ve Metodlar (Methods)
+
+Neredeyse her şeye metodlar eklenebildiğinden, neredeyse her şey bir arayüzü karşılayabilir. Açıklayıcı bir örnek, Handler arayüzünü tanımlayan `http` paketindedir. Handler'ı uygulayan herhangi bir nesne HTTP isteklerine hizmet edebilir.
+
+```go
+type Handler interface {
+    ServeHTTP(ResponseWriter, *Request)
+}
+```
+
+`ResponseWriter`'ın kendisi, yanıtı istemciye döndürmek için gereken metodlara erişim sağlayan bir arayüzdür. Bu metodlar standart `Write` metodlar içerir, dolayısıyla bir `http.ResponseWriter` bir `io.Writer`'ın kullanılabildiği her yerde kullanılabilir. `Request`, istemciden gelen isteğin ayrıştırılmış bir gösterimini içeren bir yapıdır.
+
+Kısalık için `POST`'ları yok sayalım ve HTTP isteklerinin her zaman `GET` olduğunu varsayalım; bu basitleştirme işleyicilerin _(handlers)_ kurulum şeklini etkilemez. İşte sayfanın kaç kez ziyaret edildiğini sayan bir işleyicinin önemsiz bir uygulaması.
+
+```go
+// Basit sayaç sunucusu.
+type Counter struct {
+    n int
+}
+
+func (ctr *Counter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+    ctr.n++
+    fmt.Fprintf(w, "counter = %d\n", ctr.n)
+}
+```
+
+_(Temamıza sadık kalarak, `Fprintf`'in bir `http.ResponseWriter`'a nasıl yazdırabileceğine dikkat edin)_. Gerçek bir sunucuda, `ctr.n`'ye erişimin eşzamanlı erişime karşı korunması gerekir. Öneriler için `sync` ve `atomic` paketlerine bakın.
+
+Referans olarak, böyle bir sunucunun URL ağacındaki bir düğüme nasıl ekleneceği aşağıda açıklanmıştır.
+
+```go
+import "net/http"
+...
+ctr := new(Counter)
+http.Handle("/counter", ctr)
+```
+
+Ama neden `Counter`'ı bir struct yapalım? İhtiyaç duyulan tek şey bir tamsayıdır. _(Alıcının bir işaretçi olması gerekir, böylece artış çağıran tarafından görülebilir)_.
+
+```go
+// Daha basit sayaç sunucusu.
+type Counter int
+
+func (ctr *Counter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+    *ctr++
+    fmt.Fprintf(w, "counter = %d\n", *ctr)
+}
+```
+
+Ya programınızda bir sayfanın ziyaret edildiğinin bildirilmesi gereken bazı dahili durumlar varsa? Web sayfasına bir kanal _(channel)_ bağlayın.
+
+```go
+// Her ziyarette bir bildirim gönderen bir kanal.
+// (Muhtemelen kanalın tamponlanmasını (buffered) istiyorsunuz.)
+type Chan chan *http.Request
+
+func (ch Chan) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+    ch <- req
+    fmt.Fprint(w, "notification sent")
+}
+```
+
+Son olarak, sunucu binary'sini çağırırken kullanılan argümanları `/args` üzerinde sunmak istediğimizi varsayalım. Argümanları yazdırmak için bir fonksiyon yazmak kolaydır.
+
+```go
+func ArgServer() {
+    fmt.Println(os.Args)
+}
+```
+
+Bunu bir HTTP sunucusuna nasıl dönüştürebiliriz? `ArgServer`'ı değerini görmezden geldiğimiz bir türün metodu yapabiliriz, ancak daha temiz bir yol var. İşaretçiler ve arayüzler dışında herhangi bir tür için bir metod tanımlayabildiğimizden, bir fonksiyon için bir metod yazabiliriz. `http` paketi bu kodu içerir:
+
+```go
+// HandlerFunc türü, sıradan fonksiyonların HTTP işleyicileri
+// olarak kullanılmasına izin veren bir bağdaştırıcıdır.
+// Eğer f uygun imzaya sahip bir fonksiyon ise, HandlerFunc(f) f'yi
+// çağıran bir Handler nesnesidir.
+
+// ServeHTTP, f(w, req)'yi çağırır.
+func (f HandlerFunc) ServeHTTP(w ResponseWriter, req *Request) {
+    f(w, req)
+}
+```
+
+`HandlerFunc`, `ServeHTTP` adında bir metodu olan bir türdür, dolayısıyla bu türün değerleri HTTP isteklerine hizmet edebilir. Metodun uygulanmasına bakın: alıcı bir fonksiyondur, `f`, ve metod `f`'yi çağırır. Bu garip görünebilir, ancak örneğin alıcının bir kanal olması ve yöntemin kanal üzerinden gönderilmesinden çok farklı değildir.
+
+`ArgServer`'ı bir HTTP sunucusuna dönüştürmek için önce onu doğru imzaya sahip olacak şekilde değiştiriyoruz.
+
+```go
+// Argument server.
+func ArgServer(w http.ResponseWriter, req *http.Request) {
+    fmt.Fprintln(w, os.Args)
+}
+```
+
+`ArgServer` artık `HandlerFunc` ile aynı imzaya sahiptir, bu nedenle metodlarına erişmek için bu türe dönüştürülebilir, tıpkı `IntSlice.Sort`'a erişmek için `Sequence`'ı `IntSlice`'a dönüştürdüğümüz gibi. Bunu ayarlamak için kod kısa ve özdür:
+
+```go
+http.Handle("/args", http.HandlerFunc(ArgServer))
+```
+
+Birisi `/args` sayfasını ziyaret ettiğinde, o sayfada yüklü olan işleyici _(handler)_ `ArgServer` değerine ve `HandlerFunc` türüne sahiptir. HTTP sunucusu bu türdeki `ServeHTTP` metodunu çağırır, alıcı olarak `ArgServer` bulunur ve bu da `ArgServer`'ı çağırır _(`HandlerFunc.ServeHTTP` içindeki `f(w, req)` çağrısı yoluyla)_. Argümanlar daha sonra görüntülenecektir.
+
+Bu bölümde bir `struct`, bir `integer`, bir `kanal` ve bir fonksiyondan bir HTTP sunucusu oluşturduk, çünkü arayüzler (neredeyse) her tür için tanımlanabilen metot kümeleridir.
+
+## Boş Tanımlayıcı _(The blank Identifier)_
+
