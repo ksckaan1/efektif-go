@@ -1419,3 +1419,79 @@ Bu bölümde bir `struct`, bir `integer`, bir `kanal` ve bir fonksiyondan bir HT
 
 ## Boş Tanımlayıcı _(The blank Identifier)_
 
+Boş tanımlayıcıdan `for range` [döngü](changeme)leri ve [map](change)'ler bağlamında birkaç kez bahsetmiştik. Boş tanımlayıcı, herhangi bir türden herhangi bir değerle atanabilir veya bildirilebilir, değer zararsız bir şekilde atılır. Bu biraz Unix `/dev/null` dosyasına yazmaya benzer: bir değişkene ihtiyaç duyulan ancak gerçek değerin önemsiz olduğu durumlarda yer tutucu olarak kullanılmak üzere yalnızca yazılabilir bir değeri temsil eder. Daha önce gördüklerimizin ötesinde kullanımları vardır.
+
+### Çoklu atamada boş tanımlayıcı
+
+Bir `for range` döngüsünde boş bir tanımlayıcının kullanılması, genel bir durumun özel bir durumudur: çoklu atama.
+
+Bir atama sol tarafta birden fazla değer gerektiriyorsa, ancak değerlerden biri program tarafından kullanılmayacaksa, atamanın sol tarafındaki boş bir tanımlayıcı kukla değişken oluşturma ihtiyacını ortadan kaldırır ve değerin atılacağını açıkça belirtir. Örneğin, bir değer ve bir hata döndüren ancak yalnızca hatanın önemli olduğu bir fonksiyonu çağırırken, ilgisiz değeri atmak için boş tanımlayıcıyı kullanın.
+
+```go
+if _, err := os.Stat(path); os.IsNotExist(err) {
+    fmt.Printf("%s does not exist\n", path)
+}
+```
+
+Bazen hatayı görmezden gelmek için hata değerini atan kodlar görürsünüz; bu korkunç bir uygulamadır. Hata geri dönüşlerini her zaman kontrol edin; bunların bir nedeni vardır.
+
+```go
+// Kötü! Yol mevcut değilse bu kod çökecektir.
+fi, _ := os.Stat(path)
+if fi.IsDir() {
+    fmt.Printf("%s is a directory\n", path)
+}
+```
+
+### Kullanılmayan içe atarmalar (imports) ve Değişkenler
+
+Bir paketi içe aktarmak veya bir değişkeni kullanmadan bildirmek bir hatadır. Kullanılmayan içe aktarmalar programı şişirir ve derlemeyi yavaşlatır, Tanımlanan ancak kullanılmayan bir değişken ise en azından boşa yapılan bir hesaplamadır ve belki de daha büyük bir hatanın göstergesidir. Bununla birlikte, bir program aktif geliştirme aşamasındayken, kullanılmayan içe aktarmalar ve değişkenler sıklıkla ortaya çıkar ve derlemenin devam etmesi için bunları silmek, ancak daha sonra tekrar ihtiyaç duyulması can sıkıcı olabilir. Boş tanımlayıcı geçici bir çözüm sağlar.
+
+Bu yarım yazılmış programda kullanılmayan iki içe aktarma _(`fmt` ve `io`)_ ve kullanılmayan bir değişken _(`fd`)_ vardır, bu nedenle derlenmeyecektir, ancak şu ana kadarki kodun doğru olup olmadığını görmek güzel olurdu.
+
+```go
+package main
+
+import (
+    "fmt"
+    "io"
+    "log"
+    "os"
+)
+
+func main() {
+    fd, err := os.Open("test.go")
+    if err != nil {
+        log.Fatal(err)
+    }
+    // TODO: fd'yi kullan.
+}
+```
+
+Kullanılmayan içe aktarmalarla ilgili şikayetleri susturmak için, içe aktarılan paketten bir sembole başvurmak üzere boş bir tanımlayıcı kullanın. Benzer şekilde, kullanılmayan fd değişkenini boş tanımlayıcıya atamak kullanılmayan değişken hatasını susturacaktır. Programın bu sürümü derlenmektedir.
+
+```go
+package main
+
+import (
+    "fmt"
+    "io"
+    "log"
+    "os"
+)
+
+var _ = fmt.Printf // debug için; bitince sil.
+var _ io.Reader    // debug için; bitince sil.
+
+func main() {
+    fd, err := os.Open("test.go")
+    if err != nil {
+        log.Fatal(err)
+    }
+    // TODO: fd'yi kullan.
+    _ = fd
+}
+```
+
+Geleneksel olarak, içe aktarma hatalarını susturmak için global bildirimler içe aktarmalardan hemen sonra gelmeli ve hem bulunmalarını kolaylaştırmak hem de daha sonra işleri temizlemek için bir hatırlatma olarak yorumlanmalıdır.
+
