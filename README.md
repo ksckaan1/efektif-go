@@ -1495,3 +1495,298 @@ func main() {
 
 Geleneksel olarak, içe aktarma hatalarını susturmak için global bildirimler içe aktarmalardan hemen sonra gelmeli ve hem bulunmalarını kolaylaştırmak hem de daha sonra işleri temizlemek için bir hatırlatma olarak yorumlanmalıdır.
 
+### Yan etki için içe aktarma
+
+Önceki örnekteki `fmt` veya `io` gibi kullanılmayan bir içe aktarma eninde sonunda kullanılmalı veya kaldırılmalıdır: boş tanımlayıcılar kodu devam eden bir çalışma olarak tanımlar. Ancak bazen bir paketi açık bir şekilde kullanmadan yalnızca yan etkileri için içe aktarmak yararlı olabilir. Örneğin, `init` fonksiyonu sırasında `net/http/pprof` paketi hata ayıklama bilgisi sağlayan `HTTP` işleyicilerini _(handler)_ kaydeder. Dışa aktarılan bir API'ye sahiptir, ancak çoğu istemci yalnızca işleyici kaydına ihtiyaç duyar ve verilere bir web sayfası aracılığıyla erişir. Paketi yalnızca yan etkileri için içe aktarmak için, paketi boş tanımlayıcı olarak yeniden adlandırın:
+
+```go
+import _ "net/http/pprof"
+```
+
+Bu içe aktarma biçimi, paketin yan etkileri için içe aktarıldığını açıkça ortaya koymaktadır, çünkü paketin başka bir olası kullanımı yoktur: bu dosyada bir adı yoktur. _(Eğer olsaydı ve biz bu ismi kullanmasaydık, derleyici programı reddedecekti)_.
+
+### Arayüz kontrolü
+
+Yukarıdaki [arayüz](changeme) tartışmasında gördüğümüz gibi, bir türün bir arayüzü uyguladığını açıkça bildirmesi gerekmez. Bunun yerine, bir tür sadece arayüzün metodlarını uygulayarak arayüzü uygular. Pratikte, çoğu arayüz dönüşümü statiktir ve bu nedenle derleme zamanında kontrol edilir. Örneğin, `io.Reader` bekleyen bir fonksiyona bir `*os.File` geçirmek, `*os.File` `io.Reader` arayüzünü uygulamadığı sürece derlenmeyecektir.
+
+Yine de bazı arayüz kontrolleri çalışma zamanında gerçekleşir. Bir örnek, bir [Marshaler](https://go.dev/pkg/encoding/json/#Marshaler) arayüzü tanımlayan [encoding/json](https://go.dev/pkg/encoding/json/) paketindedir. JSON kodlayıcı _(encoder)_ bu arayüzü uygulayan bir değer aldığında, kodlayıcı standart dönüştürmeyi yapmak yerine değeri JSON'a dönüştürmek için değerin `marshaling` metodunu çağırır. Kodlayıcı, bu özelliği çalışma zamanında aşağıdaki gibi bir [tür iddiası](changeme) ile kontrol eder:
+
+```go
+m, ok := val.(json.Marshaler)
+```
+
+Eğer bir türün bir arayüzü uygulayıp uygulamadığını sormak gerekiyorsa, arayüzün kendisini kullanmadan, belki de bir hata kontrolünün parçası olarak, tür tarafından onaylanan değeri yok saymak için boş tanımlayıcıyı kullanın:
+
+```go
+if _, ok := val.(json.Marshaler); ok {
+    fmt.Printf("value %v of type %T implements json.Marshaler\n", val, val)
+}
+```
+
+Bu durumun ortaya çıktığı yerlerden biri, türü uygulayan paket içinde arayüzü gerçekten karşıladığını garanti etmek gerektiğinde ortaya çıkar. Bir tür _(örneğin, [json.RawMessage](https://go.dev/pkg/encoding/json/#RawMessage))_ özel bir JSON temsiline ihtiyaç duyuyorsa, `json.Marshaler`'ı uygulamalıdır, ancak derleyicinin bunu otomatik olarak doğrulamasına neden olacak statik dönüşümler yoktur. Tür yanlışlıkla arayüzü karşılayamazsa, JSON kodlayıcı yine de çalışacak, ancak özel uygulamayı kullanmayacaktır. Uygulamanın doğru olduğunu garanti etmek için, pakette boş tanımlayıcıyı kullanan global bir bildirim kullanılabilir:
+
+```go
+var _ json.Marshaler = (*RawMessage)(nil)
+```
+
+Bu bildirimde, bir `*RawMessage`'ın bir `Marshaler`'a dönüştürülmesini içeren atama, `*RawMessage`'ın `Marshaler`'ı uygulamasını gerektirir ve bu özellik derleme zamanında kontrol edilecektir. `json.Marshaler` arayüzü değişirse, bu paket artık derlenmeyecek ve güncellenmesi gerektiği konusunda uyarılacağız.
+
+Bu yapıda boş tanımlayıcının görünmesi, bildirimin bir değişken oluşturmak için değil, yalnızca tür denetimi için var olduğunu gösterir. Yine de bunu bir arayüzü karşılayan her tür için yapmayın. Geleneksel olarak, bu tür bildirimler yalnızca kodda halihazırda statik dönüşümler bulunmadığında kullanılır, ki bu nadir bir durumdur.
+
+## Gömme (Embedding)
+
+Go, tipik, tür odaklı alt sınıflandırma kavramını sağlamaz, ancak türleri bir struct veya arayüz içine yerleştirerek bir uygulamanın parçalarını "ödünç alma" yeteneğine sahiptir.
+
+Arayüz gömme işlemi çok basittir. Daha önce `io.Reader` ve `io.Writer` arayüzlerinden bahsetmiştik; işte tanımları.
+
+```go
+type Reader interface {
+    Read(p []byte) (n int, err error)
+}
+
+type Writer interface {
+    Write(p []byte) (n int, err error)
+}
+```
+
+The io package also exports several other interfaces that specify objects that can implement several such methods. For instance, there is io.ReadWriter, an interface containing both Read and Write. We could specify io.ReadWriter by listing the two methods explicitly, but it's easier and more evocative to embed the two interfaces to form the new one, like this:
+
+```go
+// ReadWriter, bir Reader ve bir Writer'ın işaretçilerini saklar.
+type ReadWriter interface {
+    Reader
+    Writer
+}
+```
+
+Bu tam da göründüğü gibi söylüyor: Bir `ReadWriter`, bir `Reader`'ın yaptıklarını ve bir `Writer`'ın yaptıklarını yapabilir; gömülü arayüzlerin bir birleşimidir. Yalnızca arayüzler arayüzlerin içine gömülebilir.
+
+Aynı temel fikir struct'lar için de geçerlidir, ancak daha geniş kapsamlı etkileri vardır. `bufio` paketinin iki struct tipi vardır, `bufio.Reader` ve `bufio.Writer`, bunların her biri elbette `io` paketindeki benzer arayüzleri uygular. Ve `bufio` ayrıca bir okuyucu ve bir yazıcıyı gömme kullanarak tek bir struct içinde birleştirerek yaptığı tamponlanmış bir `reader/writer` uygular: struct içindeki türleri listeler, ancak onlara alan adları vermez.
+
+```go
+// ReadWriter, bir Reader ve bir Writer'ın işaretçilerini saklar.
+// io.ReadWriter'ı uygular.
+type ReadWriter struct {
+    *Reader  // *bufio.Reader
+    *Writer  // *bufio.Writer
+}
+```
+
+Gömülü elemanlar struct'lara işaretçilerdir ve elbette kullanılmadan önce geçerli struct'lara işaret edecek şekilde başlatılmalıdırlar. `ReadWriter` yapısı şu şekilde yazılabilir:
+
+```go
+type ReadWriter struct {
+    reader *Reader
+    writer *Writer
+}
+```
+
+ancak daha sonra alanların metodlarını tanıtmak ve `io` arayüzlerini karşılamak için, bunun gibi yönlendirme metodları da sağlamamız gerekir:
+
+```go
+func (rw *ReadWriter) Read(p []byte) (n int, err error) {
+    return rw.reader.Read(p)
+}
+```
+
+Struct'ları doğrudan gömdüğümüzde, bu defter tutma işleminden kaçınmış oluruz. Gömülü tiplerin metodları bedavadan gelir, yani `bufio.ReadWriter` yalnızca `bufio.Reader` ve `bufio.Writer` metodlarına sahip olmakla kalmaz, aynı zamanda üç arayüzü de karşılar: `io.Reader`, `io.Writer` ve `io.ReadWriter`.
+
+Gömmenin alt sınıflamadan farklı olduğu önemli bir yol vardır. Bir türü gömdüğümüzde, o türün metodları dış türün metodları haline gelir, ancak çağrıldıklarında metodun alıcısı dış tür değil iç türdür. Örneğimizde, bir `bufio.ReadWriter`'ın `Read` metodu çağrıldığında, yukarıda yazılan yönlendirme metoduyla tamamen aynı etkiye sahiptir; alıcı, `ReadWriter`'ın kendisi değil, `ReadWriter`'ın `writer` alanıdır.
+
+Gömme işlemi basit bir kolaylık da olabilir. Bu örnekte, normal, adlandırılmış bir alanın yanında gömülü bir alan gösterilmektedir.
+
+```go
+type Job struct {
+    Command string
+    *log.Logger
+}
+```
+
+`Job` türü artık `*log.Logger`'ın `Print`, `Printf`, `Println` ve diğer metodlarına sahiptir. Elbette `Logger`'a bir alan adı verebilirdik, ancak bunu yapmak gerekli değildir. Ve şimdi, bir kez başlatıldığında, `Job`'a log kaydı yapabiliriz:
+
+```go
+job.Println("starting now...")
+```
+
+`Logger`, `Job` struct'ının normal bir alanıdır, bu nedenle `Job` için yapıcı _(constructor/initializer)_ içinde normal şekilde başlatabiliriz, bunun gibi,
+
+```go
+func NewJob(command string, logger *log.Logger) *Job {
+    return &Job{command, logger}
+}
+```
+
+veya bileşik bir değişmez ile,
+
+```go
+job := &Job{command, log.New(os.Stderr, "Job: ", log.Ldate)}
+```
+
+Gömülü bir alana doğrudan başvurmamız gerekiyorsa, `ReadWriter` yapımızın `Read` metodunda olduğu gibi, alanın tür adı, paket niteleyicisini göz ardı ederek, alan adı olarak işlev görür. Burada, bir `Job` değişkeni `job`'un `*log.Logger`'ına erişmemiz gerekirse, `job.Logger` yazarız, bu da `Logger`'ın metodlarını iyileştirmek istediğimizde yararlı olur.
+
+```go
+func (job *Job) Printf(format string, args ...interface{}) {
+    job.Logger.Printf("%q: %s", job.Command, fmt.Sprintf(format, args...))
+}
+```
+
+Tiplerin gömülmesi isim çakışmaları sorununu ortaya çıkarır ancak bunları çözmeye yönelik kurallar basittir. İlk olarak, bir `X` alanı veya metodu, türün daha derin iç içe geçmiş bir bölümündeki diğer `X` öğelerini gizler. Eğer `log.Logger` `Command` adında bir alan ya da metod içeriyorsa, `Job`'un `Command` alanı ona baskın gelecektir.
+
+İkinci olarak, aynı isim aynı iç içe geçme seviyesinde görünüyorsa, bu genellikle bir hatadır; `Job` yapısı `Logger` adında başka bir alan veya metod içeriyorsa `log.Logger`'ı gömmek hatalı olacaktır. Ancak, yinelenen addan programda tür tanımı dışında hiç bahsedilmiyorsa, sorun yoktur. Bu nitelik, dışarıdan gömülen tiplerde yapılan değişikliklere karşı bir miktar koruma sağlar; başka bir alt tipteki başka bir alanla çakışan bir alan eklenirse, her iki alan da hiç kullanılmazsa sorun olmaz.
+
+## Eşzamanlılık
+
+### İletişim kurarak paylaşın
+
+Eş zamanlı programlama geniş bir konudur ve burada yalnızca Go'ya özgü bazı önemli noktalara yer verilmiştir.
+
+Birçok ortamda eş zamanlı programlama, paylaşılan değişkenlere doğru erişimi uygulamak için gereken incelikler nedeniyle zorlaşır. Go, paylaşılan değerlerin kanallar üzerinde dolaştırıldığı ve aslında hiçbir zaman ayrı yürütme iş parçacıkları tarafından aktif olarak paylaşılmadığı farklı bir yaklaşımı teşvik eder. Herhangi bir zamanda değere yalnızca bir **goroutine** erişebilir. Tasarım gereği veri yarışları oluşamaz. Bu düşünce tarzını teşvik etmek için bunu bir slogana indirgedik:
+
+> Belleği paylaşarak iletişim kurmayın; bunun yerine iletişim kurarak belleği paylaşın.
+
+Bu yaklaşım çok ileri götürülebilir. Referans sayımları, örneğin bir tamsayı değişkeninin etrafına bir muteks koyarak en iyi şekilde yapılabilir. Ancak üst düzey bir yaklaşım olarak, erişimi kontrol etmek için kanalları kullanmak net ve doğru programlar yazmayı kolaylaştırır.
+
+Bu model hakkında düşünmenin bir yolu, tek bir CPU üzerinde çalışan tipik bir tek iş parçacıklı program düşünmektir. Senkronizasyon ilkellerine ihtiyacı yoktur. Şimdi böyle başka bir örnek düşünün; onun da senkronizasyona ihtiyacı yoktur. Şimdi bu ikisinin iletişim kurmasına izin verin; eğer iletişim senkronize edici ise, başka bir senkronizasyona hala ihtiyaç yoktur. Örneğin Unix Pipe'lar bu modele mükemmel uyum sağlar. Go'nun eşzamanlılığa yaklaşımı Hoare'nin **Communicating Sequential Processes** _(CSP)_ yaklaşımından kaynaklansa da, Unix Pipe'ların tip güvenli bir genellemesi olarak da görülebilir.
+
+### Goroutine'ler
+
+Bunlara `goroutine` denmesinin nedeni mevcut terimlerin _(thread, coroutine, process vb.)_ yanlış çağrışımlar yapmasıdır. Bir goroutine'in basit bir modeli vardır: aynı adres alanında diğer goroutine'lerle eşzamanlı olarak çalışan bir fonksiyondur. Hafiftir, yığın alanı _(Stack)_ tahsisinden biraz daha fazlasına mal olur. Yığınlar küçük başlar, bu nedenle ucuzdurlar ve gerektiğinde yığın depolama alanı tahsis ederek _(ve boşaltarak)_ büyürler.
+
+Goroutinler birden fazla işletim sistemi iş parçacığına çoğullanır, böylece G/Ç _(I/O)_ beklerken olduğu gibi birinin bloke olması durumunda diğerleri çalışmaya devam eder. Tasarımları, iş parçacığı oluşturma ve yönetiminin birçok karmaşıklığını gizler.
+
+Çağrıyı yeni bir goroutine'de çalıştırmak için bir fonksiyon veya metod çağrısının önüne `go` anahtar sözcüğünü ekleyin. Çağrı tamamlandığında, goroutine sessizce çıkar. _(Bu etki Unix kabuğunun arka planda bir komut çalıştırmak için kullandığı `&` gösterimine benzer)_.
+
+```go
+go list.Sort()  // list.Sort'u eşzamanlı yürüt; bunun için bekleme.
+```
+
+Bir fonksiyon değişmezi bir goroutine çağrısında kullanışlı olabilir.
+
+```go
+func Announce(message string, delay time.Duration) {
+    go func() {
+        time.Sleep(delay)
+        fmt.Println(message)
+    }()  // Parantezlere dikkat - fonksiyonu çalıştırmalıyız.
+}
+```
+
+Go'da fonksiyon değişmezleri kapanışlardır _(closure)_: uygulama, fonksiyon tarafından atıfta bulunulan değişkenlerin aktif oldukları sürece hayatta kalmasını sağlar.
+
+Bu örnekler çok pratik değildir çünkü fonksiyonların tamamlanma sinyali verme yolu yoktur. Bunun için kanallara ihtiyacımız var.
+
+### Kanallar _(Channels)_
+
+Map'ler gibi, kanallar da `make` ile tahsis edilir ve elde edilen değer altta yatan bir veri yapısına referans olarak işlev görür. İsteğe bağlı bir tamsayı parametresi sağlanırsa, kanal için tampon _(buffer)_ boyutunu ayarlar. Tamponsuz _(Unbuffered)_ veya eşzamanlı bir kanal için varsayılan değer sıfırdır.
+
+```go
+ci := make(chan int)            // unbuffered integer channel'ı
+cj := make(chan int, 0)         // unbuffered integer channel'ı
+cs := make(chan *os.File, 100)  // buffered *os.File channel'ı
+```
+
+Tamponsuz _(unbuffered)_ kanallar iletişimi _(bir değerin değiş tokuşu)_ senkronizasyonla _(iki hesaplamanın (goroutine) bilinen bir durumda olmasını garanti etmek)_ birleştirir.
+
+Kanalları kullanan pek çok güzel deyim _(idiom)_ vardır. İşte başlamamız için bir tane. Önceki bölümde arka planda bir sıralama başlattık. Bir kanal, başlatan goroutine'in sıralamanın tamamlanmasını beklemesine izin verebilir.
+
+```go
+c := make(chan int)  // bir kanal tahsis et.
+// sıralamayı goroutine'de başlat; tamamlandığında kanala sinyal gönder.
+go func() {
+    list.Sort()
+    c <- 1  // Bir sinyal gönder; değeri önemli değil.
+}()
+doSomethingForAWhile() // Bu esnada başka işlemler erçekleşebilir
+<-c   // Sıralamanın bitmesini bekle; kanaldan gelen değer önemli değil.
+```
+Alıcılar, alınacak veri olana kadar her zaman bloke olurlar. Kanal tamponsuzsa, gönderici alıcı değeri alana kadar bloke eder. Kanalın bir tamponu varsa, gönderici yalnızca değer tampona kopyalanana kadar engeller; tampon doluysa, bu, bir alıcı bir değer alana kadar beklemek anlamına gelir.
+
+Tamponlu bir kanal, örneğin verimi sınırlamak için bir semafor gibi kullanılabilir. Bu örnekte, gelen istekler, kanala bir değer gönderen, isteği işleyen ve ardından bir sonraki tüketici için "semaforu" hazır hale getirmek üzere kanaldan bir değer alan `handle`'a iletilir. Kanal tamponunun kapasitesi, işlenecek eşzamanlı çağrı sayısını sınırlar.
+
+```go
+ar sem = make(chan int, MaxOutstanding)
+
+func handle(r *Request) {
+    sem <- 1    // Aktif kuyruğun boşalmasını bekleyin.
+    process(r)  // Uzun sürebilir.
+    <-sem       // Bitti; bir sonraki isteğin çalışmasını sağlayın.
+}
+
+func Serve(queue chan *Request) {
+    for {
+        req := <-queue
+        go handle(req)  // handle'ın bitmesini beklemeyin.
+    }
+}
+```
+
+`MaxOutstanding` işleyicileri _(handlers)_ işlemi yürüttüğünde, mevcut işleyicilerden biri bitirip arabellekten alana kadar daha fazlası dolu kanal arabelleğine göndermeye çalışırken engellenecektir.
+
+Ancak bu tasarımın bir sorunu var: `Serve`, gelen her istek için yeni bir goroutine oluşturur, ancak herhangi bir anda bunlardan yalnızca `MaxOutstanding` çalışabilir. Sonuç olarak, istekler çok hızlı gelirse program sınırsız kaynak tüketebilir. Bu eksikliği `Serve`'i goroutine'lerin oluşturulmasına geçit verecek şekilde değiştirerek giderebiliriz. İşte bariz bir çözüm, ancak daha sonra düzelteceğimiz bir hataya sahip olduğuna dikkat edin:
+
+```go
+func Serve(queue chan *Request) {
+    for req := range queue {
+        sem <- 1
+        go func() {
+            process(req) // Hatalı, aşağıdaki açıklamaya bakın.
+            <-sem
+        }()
+    }
+}
+```
+
+Hata, bir Go `for` döngüsünde, döngü değişkeninin her yineleme için yeniden kullanılmasıdır, bu nedenle `req` değişkeni tüm goroutinler arasında paylaşılır. Bizim istediğimiz bu değil. `req` değişkeninin her goroutine için benzersiz olduğundan emin olmamız gerekir. Bunu yapmanın bir yolu, `req` değerini goroutine'deki closure'a bir argüman olarak geçirmektir:
+
+```go
+func Serve(queue chan *Request) {
+    for req := range queue {
+        sem <- 1
+        go func(req *Request) {
+            process(req)
+            <-sem
+        }(req)
+    }
+}
+```
+
+Closure'un bildirilme ve çalıştırılma şeklindeki farkı görmek için bu sürümü bir öncekiyle karşılaştırın. Başka bir çözüm de bu örnekte olduğu gibi aynı isimde yeni bir değişken oluşturmaktır:
+
+```go
+func Serve(queue chan *Request) {
+    for req := range queue {
+        req := req // Aynı isimde bu blok için bir değişken oluştur.
+        sem <- 1
+        go func() {
+            process(req)
+            <-sem
+        }()
+    }
+}
+```
+
+Bu şekilde yazmak grip görünebilir
+
+```go
+req := req
+```
+
+ancak Go'da bunu yapmak yasal ve deyimseldir. Döngü değişkenini kasıtlı olarak yerel olarak gölgeleyen ancak her goroutine için benzersiz olan aynı ada sahip değişkenin yeni bir sürümünü elde edersiniz.
+
+Genel sunucu yazma sorununa geri dönecek olursak, kaynakları iyi yöneten bir başka yaklaşım, tümü istek kanalından okuyan sabit sayıda `handler` goroutin başlatmaktır. Goroutin sayısı, işlenecek eşzamanlı çağrı sayısını sınırlar. Bu `Serve` fonksiyonu ayrıca kendisine çıkmasının söyleneceği bir kanal kabul eder; goroutinleri başlattıktan sonra bu kanaldan alımları engeller.
+
+```go
+func handle(queue chan *Request) {
+    for r := range queue {
+        process(r)
+    }
+}
+
+func Serve(clientRequests chan *Request, quit chan bool) {
+    // handler'ları başlat
+    for i := 0; i < MaxOutstanding; i++ {
+        go handle(clientRequests)
+    }
+    <-quit  // Wait to be told to exit.
+}
+```
