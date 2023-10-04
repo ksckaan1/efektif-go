@@ -1765,7 +1765,7 @@ func Serve(queue chan *Request) {
 }
 ```
 
-Bu şekilde yazmak grip görünebilir
+Bu şekilde yazmak garip görünebilir
 
 ```go
 req := req
