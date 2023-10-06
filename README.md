@@ -8,6 +8,25 @@ Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_g
     - [Örnekler](#%C3%B6rnekler)
 - [Biçimlendirme (Formatting)](#bi%C3%A7imlendirme-formatting)
 - [Yorumlar](#yorumlar)
+- [İsimler](#i%CC%87simler)
+    - [Paket İsimleri](#paket-i%CC%87simleri)
+    - [Getters (Alıcılar)](https://github.com/ksckaan1/efektif-go#getters-al%C4%B1c%C4%B1lar)
+    - [Interface (Arayüz) İsimleri](https://github.com/ksckaan1/efektif-go#interface-aray%C3%BCz-i%CC%87simleri)
+    - [MixedCaps (Büyük-Küçük Karışık İsimlendirme)](https://github.com/ksckaan1/efektif-go#mixedcaps-b%C3%BCy%C3%BCk-k%C3%BC%C3%A7%C3%BCk-kar%C4%B1%C5%9F%C4%B1k-i%CC%87simlendirme-)
+- [Noktalı Virgüller (Semicolons)](https://github.com/ksckaan1/efektif-go#noktal%C4%B1-virg%C3%BCller-semicolons)
+- [Kontrol Yapıları](https://github.com/ksckaan1/efektif-go#kontrol-yap%C4%B1lar%C4%B1)
+    - [If](https://github.com/ksckaan1/efektif-go#if)
+    - [Yeniden Tanımlama ve Atama](https://github.com/ksckaan1/efektif-go#yeniden-tan%C4%B1mlama-ve-atama)
+    - [For](https://github.com/ksckaan1/efektif-go#for)
+    - [Switch](https://github.com/ksckaan1/efektif-go#switch)
+    - [Type Switch](https://github.com/ksckaan1/efektif-go#type-switch)
+- [Fonksiyonlar](https://github.com/ksckaan1/efektif-go#fonksiyonlar)
+    - [Çoklu Döndürülen Değerler](https://github.com/ksckaan1/efektif-go#%C3%A7oklu-d%C3%B6nd%C3%BCr%C3%BClen-de%C4%9Ferler)
+    - [İsimli Sonuç Parametreleri](https://github.com/ksckaan1/efektif-go#i%CC%87simli-sonu%C3%A7-parametreleri)
+    - [Defer](https://github.com/ksckaan1/efektif-go#defer)
+- [Veri (Data)](https://github.com/ksckaan1/efektif-go#veri-data)
+- [`new` ile Tahsis (Allocation) Etme](https://github.com/ksckaan1/efektif-go#-new-ile-tahsis-allocation-etme)
+- 
 
 ## Giriş
 
