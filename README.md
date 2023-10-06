@@ -4,6 +4,8 @@ Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_g
 
 ### İçerik Tablosu
 
+- [Giriş](#giri%C5%9F)
+
 ## Giriş
 
 Go yeni bir dildir. Mevcut dillerden fikirler ödünç almasına rağmen, efektif _(etkili)_ yazılmış Go programlarını, muadili olduğu diğer dillerde yazılmış olan programlardan farklı kılan olağandışı özelliklere sahiptir. Bir C++ veya Java programının Go'ya doğrudan çevirisinin tatmin edici bir sonuç vermesi pek olası değildir. Java programları Go ile değil Java ile yazılır. Öte yandan, sorunu Go perspektifinden düşünmek, başarılı ancak oldukça farklı bir program üretebilir. Diğer bir deyişle, iyi bir şekilde Go yazmak, Go'nun özelliklerini ve kullanım tarzını iyi anlamaktan geçer. Yazdığınız programları diğer Go programcılarının anlamasını kolaylaştırmak için, isimlendirme, yazılacak programın yapısını belirleme ve biçimlendirme gibi kuralları bilmek önemlidir.
