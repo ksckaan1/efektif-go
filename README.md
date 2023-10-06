@@ -2,6 +2,8 @@
 > **Çevirmen Notu:**
 > 
 > Bu döküman 06.10.2023 tarihinde [Effective Go](https://go.dev/doc/effective\_go) adlı yazıdan tercüme edilmiştir.
+> 
+> Yazım veya çeviri yanlışı gördüğünüz yerleri bildirirseniz çok sevinirim.
 
 ### İçerik Tablosu
 
