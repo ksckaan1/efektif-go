@@ -2,6 +2,8 @@
 
 Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_go) adlı yazıdan tercüme edilmiştir.
 
+### İçerik Tablosu
+
 ## Giriş
 
 Go yeni bir dildir. Mevcut dillerden fikirler ödünç almasına rağmen, efektif _(etkili)_ yazılmış Go programlarını, muadili olduğu diğer dillerde yazılmış olan programlardan farklı kılan olağandışı özelliklere sahiptir. Bir C++ veya Java programının Go'ya doğrudan çevirisinin tatmin edici bir sonuç vermesi pek olası değildir. Java programları Go ile değil Java ile yazılır. Öte yandan, sorunu Go perspektifinden düşünmek, başarılı ancak oldukça farklı bir program üretebilir. Diğer bir deyişle, iyi bir şekilde Go yazmak, Go'nun özelliklerini ve kullanım tarzını iyi anlamaktan geçer. Yazdığınız programları diğer Go programcılarının anlamasını kolaylaştırmak için, isimlendirme, yazılacak programın yapısını belirleme ve biçimlendirme gibi kuralları bilmek önemlidir.
@@ -1790,3 +1792,369 @@ func Serve(clientRequests chan *Request, quit chan bool) {
     <-quit  // Wait to be told to exit.
 }
 ```
+
+### Kanalların Kanalları
+
+Go'nun en önemli özelliklerinden biri, bir kanalın diğerleri gibi tahsis edilebilen ve aktarılabilen birinci sınıf bir değer olmasıdır. Bu özelliğin yaygın bir kullanımı, güvenli, paralel demultiplexing uygulamaktır.
+
+Önceki bölümdeki örnekte, handle bir istek için idealleştirilmiş bir işleyiciydi ancak işlediği türü tanımlamadık. Eğer bu tip cevap verilecek bir kanal içeriyorsa, her istemci cevap için kendi yolunu sağlayabilir. İşte Request tipinin şematik bir tanımı.
+
+```go
+type Request struct {
+    args        []int
+    f           func([]int) int
+    resultChan  chan int
+}
+```
+
+İstemci bir fonksiyon ve argümanlarının yanı sıra istek nesnesi _(Request)_ içinde cevabı alacağı bir kanal sağlar.
+
+```go
+func sum(a []int) (s int) {
+    for _, v := range a {
+        s += v
+    }
+    return
+}
+
+request := &Request{[]int{3, 4, 5}, sum, make(chan int)}
+// İsteği gönder
+clientRequests <- request
+// Cevap için bekle.
+fmt.Printf("answer: %d\n", <-request.resultChan)
+```
+
+Sunucu tarafında değişen tek şey işleyici işlevidir.
+
+```go
+func handle(queue chan *Request) {
+    for req := range queue {
+        req.resultChan <- req.f(req.args)
+    }
+}
+```
+
+Bunu gerçekçi hale getirmek için yapılacak daha çok şey olduğu açıktır, ancak bu kod, hız sınırlı, paralel, tıkanmayan bir RPC sistemi için bir çerçevedir ve görünürde bir muteks yoktur.
+
+### Paralelleştirme
+
+Bu fikirlerin bir başka uygulaması da bir hesaplamayı birden fazla CPU çekirdeği üzerinde paralelleştirmektir. Hesaplama bağımsız olarak yürütülebilen ayrı parçalara bölünebilirse, her parça tamamlandığında sinyal vermek için bir kanalla paralelleştirilebilir.
+
+Diyelim ki bir öğe vektörü üzerinde gerçekleştirmemiz gereken pahalı bir işlem var ve bu idealleştirilmiş örnekte olduğu gibi her bir öğe üzerindeki işlemin değeri bağımsız.
+
+```go
+type Vector []float64
+
+// İşlemi v[i], v[i+1] ... v[n-1]'e kadar uygulayın.
+func (v Vector) DoSome(i, n int, u Vector, c chan int) {
+    for ; i < n; i++ {
+        v[i] += u.Op(v[i])
+    }
+    c <- 1    // bu parçanın tamamlandığına dair sinyal
+}
+```
+
+Parçaları CPU başına bir tane olmak üzere bir döngü içinde bağımsız olarak başlatıyoruz. Herhangi bir sırada tamamlayabilirler ancak bu önemli değildir; sadece tüm goroutinleri başlattıktan sonra kanalı boşaltarak tamamlanma sinyallerini sayarız.
+
+```go
+const numCPU = 4 // CPU çekirdeği sayısı
+
+func (v Vector) DoAll(u Vector) {
+    c := make(chan int, numCPU)  // Tamponlama (buffering) isteğe bağlı ama mantıklı.
+    for i := 0; i < numCPU; i++ {
+        go v.DoSome(i*len(v)/numCPU, (i+1)*len(v)/numCPU, u, c)
+    }
+    // Drain the channel.
+    for i := 0; i < numCPU; i++ {
+        <-c    // bir görevin tamamlanmasını bekleyin
+    }
+    // All done.
+}
+```
+
+`numCPU` için sabit bir değer oluşturmak yerine, çalışma zamanına hangi değerin uygun olduğunu sorabiliriz. [runtime.NumCPU](https://go.dev/pkg/runtime#NumCPU) fonksiyonu makinedeki donanım CPU çekirdeklerinin sayısını döndürür, bu nedenle şunları yazabiliriz
+
+```go
+var numCPU = runtime.NumCPU()
+```
+
+Ayrıca, bir Go programının aynı anda çalışabileceği kullanıcı tarafından belirtilen çekirdek sayısını bildiren _(veya ayarlayan)_ [runtime.GOMAXPROCS](https://go.dev/pkg/runtime#GOMAXPROCS) fonksiyonu da vardır. Varsayılan değer `runtime.NumCPU` değeridir, ancak benzer şekilde adlandırılmış kabuk _(shell)_ ortam değişkeni ayarlanarak veya fonksiyon pozitif bir sayı ile çağrılarak geçersiz kılınabilir. Sıfır ile çağırmak sadece değeri sorgular. Bu nedenle, kullanıcının kaynak isteğini yerine getirmek istiyorsak şunları yazmalıyız
+
+```go
+var numCPU = runtime.GOMAXPROCS(0)
+```
+
+Eşzamanlılık _(bir programı bağımsız olarak çalışan bileşenler olarak yapılandırma)_ ve paralellik _(birden fazla CPU'da verimlilik için hesaplamaları paralel olarak yürütme)_ fikirlerini karıştırmadığınızdan emin olun. Go'nun eşzamanlılık özellikleri bazı problemlerin paralel hesaplamalar olarak yapılandırılmasını kolaylaştırsa da, Go paralel değil eşzamanlı bir dildir ve tüm paralelleştirme problemleri Go'nun modeline uymaz. Bu ayrımla ilgili bir tartışma için [bu blog yazısı](https://blog.golang.org/2013/01/concurrency-is-not-parallelism.html)nda alıntılanan konuşmaya bakın.
+
+### Sızdıran bir tampon
+
+Eşzamanlı programlama araçları, eşzamanlı olmayan fikirlerin ifade edilmesini bile kolaylaştırabilir. İşte bir RPC paketinden soyutlanmış bir örnek. İstemci goroutine, bir kaynaktan, belki de bir ağdan veri alma döngüsüne giriyor. Tampon ayırmaktan ve boşaltmaktan kaçınmak için bir boş liste tutar ve bunu temsil etmek için tamponlu bir kanal kullanır. Eğer kanal boşsa, yeni bir tampon tahsis edilir. Mesaj tamponu hazır olduğunda, `serverChan` üzerindeki sunucuya gönderilir.
+
+```go
+var freeList = make(chan *Buffer, 100)
+var serverChan = make(chan *Buffer)
+
+func client() {
+    for {
+        var b *Buffer
+        // Varsa bir arabellek (tampon) alın; yoksa ayırın..
+        select {
+        case b = <-freeList:
+            // Bir tane var; yapacak başka bir şey yok.
+        default:
+            // Boş yok, o yüzden yeni bir tane tahsis edin.
+            b = new(Buffer)
+        }
+        load(b)              // Netten gelen bir sonraki mesajı okuyun.
+        serverChan <- b      // Sunucuya gönder
+    }
+}
+```
+
+Sunucu döngüsü istemciden gelen her mesajı alır, işler ve tamponu boş listeye geri gönderir.
+
+```go
+func server() {
+    for {
+        b := <-serverChan    // İş için bekleyin.
+        process(b)
+        // Yer varsa tamponu yeniden kullanın.
+        select {
+        case freeList <- b:
+            // Buffer freeList'te; yapacak başka bir şey yok.
+        default:
+            // freeList dolu, sadece devam edin.
+        }
+    }
+}
+```
+
+İstemci `freeList`'ten bir tampon almaya çalışır; eğer mevcut değilse yeni bir tane tahsis eder. Sunucunun `freeList`'e göndermesi, liste dolmadığı sürece `b`'yi tekrar `freeList`'e koyar, bu durumda tampon çöp toplayıcı tarafından geri alınmak üzere yere bırakılır. _(`select` deyimlerindeki varsayılan cümleler, başka hiçbir durum hazır olmadığında yürütülür, yani `select`'ler asla bloke olmaz)_. Bu uygulama, sadece birkaç satırda, tamponlu kanala ve defter tutma için çöp toplayıcıya güvenerek bir sızdıran kova (bunun ne olduğunu ben de anlamadım) `freeList`'i oluşturur.
+
+## Hatalar
+
+Kütüphane rutinleri genellikle çağırana bir tür hata göstergesi döndürmelidir. Daha önce de belirtildiği gibi, Go'nun çok değerli geri dönüşü, normal geri dönüş değerinin yanı sıra ayrıntılı bir hata açıklaması döndürmeyi kolaylaştırır. Ayrıntılı hata bilgisi sağlamak için bu özelliği kullanmak iyi bir tarzdır. Örneğin, göreceğimiz gibi, `os.Open` hata durumunda sadece bir `nil` işaretçisi döndürmekle kalmaz, aynı zamanda neyin yanlış gittiğini açıklayan bir `error` değeri de döndürür.
+
+Geleneksel olarak, hatalar basit bir yerleşik arayüz olan `error` türüne sahiptir.
+
+```go
+type error interface {
+    Error() string
+}
+```
+
+Bir kütüphane yazarı, bu arayüzü daha zengin bir modelle uygulamakta özgürdür, bu da yalnızca hatayı görmeyi değil, aynı zamanda bazı bağlamlar sağlamayı da mümkün kılar. Belirtildiği gibi, olağan `*os.File` dönüş değerinin yanı sıra, `os.Open` ayrıca bir hata değeri de döndürür. Dosya başarıyla açılmışsa, hata değeri `nil` olacaktır, ancak bir sorun olduğunda, bir `os.PathError` tutacaktır:
+
+```go
+type PathError struct {
+    Op string    // "open", "unlink", vb.
+    Path string  // Alakalı dosya.
+    Err error    // system call dönüşü.
+}
+
+func (e *PathError) Error() string {
+    return e.Op + " " + e.Path + ": " + e.Err.Error()
+}
+```
+
+`PathError` aşağıdaki gibi bir dize döner:
+
+```go
+open /etc/passwx: no such file or directory
+```
+
+Sorunlu dosya adını, işlemi ve tetiklediği işletim sistemi hatasını içeren böyle bir hata, buna neden olan çağrıdan uzakta yazdırılsa bile yararlıdır; basit **"böyle bir dosya veya dizin yok"** ifadesinden çok daha bilgilendiricidir.
+
+Mümkün olduğunda, hata dizeleri, örneğin hatayı oluşturan işlemi veya paketi adlandıran bir ön eke sahip olarak kaynaklarını tanımlamalıdır. Örneğin, `image` paketinde, bilinmeyen bir formattan kaynaklanan decode hatası için dize gösterimi **"image: unknown format"** şeklindedir.
+
+Kesin hata ayrıntılarını önemseyen çağırıcılar, belirli hataları aramak ve ayrıntıları çıkarmak için bir tür anahtarı veya bir tür iddiası kullanabilir. `PathErrors` için bu, kurtarılabilir hatalar için dahili `Err` alanının incelenmesini içerebilir.
+
+```go
+for try := 0; try < 2; try++ {
+    file, err = os.Create(filename)
+    if err == nil {
+        return
+    }
+    if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOSPC {
+        deleteTempFiles()  // Biraz yer kazanın.
+        continue
+    }
+    return
+}
+```
+
+Buradaki ikinci if deyimi başka bir [tür iddiası](changeme)dır. Başarısız olursa, `ok` `false` olur ve `e` `nil` olur. Başarılı olursa, `ok` `true` olur, bu da hatanın `*os.PathError` türünde olduğu anlamına gelir ve hata hakkında daha fazla bilgi için inceleyebileceğimiz `e` de öyle olur.
+
+## Panik
+
+Bir hatayı çağırana bildirmenin olağan yolu, ekstra bir dönüş değeri olarak bir hata döndürmektir. Kuralcı `Read` metodu iyi bilinen bir örnektir; bir bayt sayısı ve bir hata döndürür. Ancak hata kurtarılamazsa ne olur? Bazen program basitçe devam edemez.
+
+Bu amaçla, programı durduracak bir çalışma zamanı hatası yaratan yerleşik bir `panic` fonksiyonu vardır _(ancak bir sonraki bölüme bakın)_. Fonksiyon, program ölürken yazdırılmak üzere rastgele türde _(genellikle bir dize)_ tek bir argüman alır. Ayrıca, sonsuz bir döngüden çıkmak gibi imkansız bir şeyin gerçekleştiğini belirtmenin bir yoludur.
+
+```go
+// Newton yöntemini kullanarak küp kökün oyuncak uygulaması.
+func CubeRoot(x float64) float64 {
+    z := x/3   // Keyfi başlangıç değeri
+    for i := 0; i < 1e6; i++ {
+        prevz := z
+        z -= (z*z*z-x) / (3*z*z)
+        if veryClose(z, prevz) {
+            return z
+        }
+    }
+    // Bir milyon iterasyon yakınsamadı; bir sorun var.
+    panic(fmt.Sprintf("CubeRoot(%g) did not converge", x))
+}
+```
+
+Bu sadece bir örnektir ancak gerçek kütüphane fonksiyonları `panic`'ten kaçınmalıdır. Eğer sorun maskelenebiliyor ya da etrafından dolaşılabiliyorsa, tüm programı çökertmek yerine her şeyin çalışmaya devam etmesine izin vermek her zaman daha iyidir. Olası bir karşı örnek başlatma sırasındadır: kütüphane gerçekten kendini ayarlayamıyorsa, tabiri caizse panik yapmak makul olabilir.
+
+```go
+var user = os.Getenv("USER")
+
+func init() {
+    if user == "" {
+        panic("no value for $USER")
+    }
+}
+```
+
+### Kurtarmak (Recover)
+
+`panic` çağrıldığında, bir dilimin sınırlar dışında indekslenmesi veya bir tür onaylamasının başarısız olması gibi çalışma zamanı hataları da dahil olmak üzere, geçerli fonksiyonun yürütülmesini derhal durdurur ve goroutine'in yığınını çözmeye başlar, yol boyunca ertelenmiş fonksiyonları çalıştırır. Bu çözme işlemi goroutine'in yığınının tepesine ulaşırsa program ölür. Ancak, goroutinin kontrolünü yeniden kazanmak ve normal yürütmeyi sürdürmek için yerleşik `recover` fonksiyonunu kullanmak mümkündür.
+
+Bir `recover` çağrısı çözme işlemini durdurur ve `panic`'e aktarılan argümanı döndürür. Çözme sırasında çalışan tek kod ertelenmiş fonksiyonlar içinde olduğundan, `recover` yalnızca ertelenmiş fonksiyonlar içinde kullanışlıdır.
+
+Kurtarmanın bir uygulaması, bir sunucu içinde başarısız olan bir gorutini diğer çalışan gorutinleri öldürmeden kapatmaktır.
+
+```go
+func server(workChan <-chan *Work) {
+    for work := range workChan {
+        go safelyDo(work)
+    }
+}
+
+func safelyDo(work *Work) {
+    defer func() {
+        if err := recover(); err != nil {
+            log.Println("work failed:", err)
+        }
+    }()
+    do(work)
+}
+```
+
+Bu örnekte, `do(work)` panik yaparsa, sonuç log'lanacak ve goroutine diğerlerini rahatsız etmeden temiz bir şekilde çıkacaktır. Ertelenmiş foksiyonda başka bir şey yapmaya gerek yoktur; `recover` çağrısı koşulu tamamen ele alır.
+
+Doğrudan ertelenmiş bir fonksiyondan çağrılmadıkça `recover` her zaman `nil` döndürdüğünden, ertelenmiş kod `panic` ve `recover` kullanan kütüphane rutinlerini başarısız olmadan çağırabilir. Örnek olarak, `safelyDo`'daki ertelenmiş fonksiyon `recover`'i çağırmadan önce bir loglama fonksiyonunu çağırabilir ve bu loglama kodu panik durumundan etkilenmeden çalışır.
+
+Kurtarma modelimiz sayesinde `do` fonksiyonu _(ve çağırdığı her şey)_ herhangi bir kötü durumdan panik çağrısı yaparak temiz bir şekilde kurtulabilir. Bu fikri karmaşık yazılımlarda hata işlemeyi basitleştirmek için kullanabiliriz. Yerel bir hata türüyle `panic`'i çağırarak ayrıştırma hatalarını bildiren bir `regexp` paketinin idealleştirilmiş bir versiyonuna bakalım. İşte `Error` tanımı, bir hata yöntemi ve `Compile` fonksiyonu.
+
+```go
+// Error bir ayrıştırma hatasının türüdür; error arayüzünü karşılar.
+type Error string
+func (e Error) Error() string {
+    return string(e)
+}
+
+// error, bir Error ile panikleyerek ayrıştırma hatalarını bildiren bir *Regexp metodudur
+func (regexp *Regexp) error(err string) {
+    panic(Error(err))
+}
+
+// Compile, düzenli ifadenin ayrıştırılmış bir temsilini döndürür.
+func Compile(str string) (regexp *Regexp, err error) {
+    regexp = new(Regexp)
+    // doParse bir ayrıştırma hatası varsa panik yapacaktır.
+    defer func() {
+        if e := recover(); e != nil {
+            regexp = nil    // Dönüş değerini temizleyin.
+            err = e.(Error) // Bir ayrıştırma hatası değilse yeniden panikleyecektir.
+        }
+    }()
+    return regexp.doParse(str), nil
+}
+```
+
+`doParse` panik yaparsa, kurtarma bloğu dönüş değerini `nil` olarak ayarlar - ertelenmiş fonksiyonlar adlandırılmış dönüş değerlerini değiştirebilir. Daha sonra, `err`'ye yapılan atamada, yerel `Error` türüne sahip olduğunu iddia ederek sorunun bir ayrıştırma hatası olup olmadığını kontrol eder. Aksi takdirde, tür doğrulaması başarısız olur ve çalışma zamanı hatasına neden olarak yığının çözülmesini hiçbir şey kesintiye uğratmamış gibi devam ettirir. Bu kontrol, sınırların dışında bir dizin gibi beklenmedik bir şey olursa, ayrıştırma hatalarını işlemek için `panic` ve `recover` kullanmamıza rağmen kodun başarısız olacağı anlamına gelir.
+
+Hata işleme yerindeyken, hata metodu _(bir türe bağlı bir metod olduğu için, yerleşik hata türüyle aynı ada sahip olması sorun değildir, hatta doğaldır)_, ayrıştırma yığınını elle çözme konusunda endişelenmeden ayrıştırma hatalarını bildirmeyi kolaylaştırır:
+
+```go
+if pos == 0 {
+    re.error("'*' illegal at start of expression")
+}
+```
+
+Bu kalıp faydalı olsa da, yalnızca bir paket içinde kullanılmalıdır. `Parse` kendi iç panik çağrılarını hata değerlerine dönüştürür; panikleri istemcisine göstermez. Bu uyulması gereken iyi bir kuraldır.
+
+Bu arada, bu yeniden panik _(re-panic)_ deyimi, gerçek bir hata meydana gelirse panik değerini değiştirir. Bununla birlikte, hem orijinal hem de yeni hatalar çökme raporunda sunulacak, böylece sorunun temel nedeni hala görünür olacaktır. Bu nedenle, bu basit yeniden panik yaklaşımı genellikle yeterlidir - sonuçta bu bir çökmedir - ancak yalnızca orijinal değeri görüntülemek istiyorsanız, beklenmedik sorunları filtrelemek ve orijinal hatayla yeniden panik yapmak için biraz daha fazla kod yazabilirsiniz. Bu okuyucu için bir alıştırma olarak kaldı.
+
+## Bir web sunucusu
+
+Tam bir Go programı, bir web sunucusu ile bitirelim. Bu aslında bir tür web yeniden sunucusudur. Google, `chart.apis.google.com` adresinde verilerin otomatik olarak çizelge ve grafiklere dönüştürülmesini sağlayan bir hizmet sunmaktadır. Yine de etkileşimli olarak kullanmak zordur, çünkü verileri URL'ye sorgu olarak koymanız gerekir. Buradaki program bir tür veri için daha güzel bir arayüz sağlıyor: kısa bir metin parçası verildiğinde, metni kodlayan kutulardan oluşan bir matris olan QR kodunu üretmek için grafik sunucusunu çağırıyor. Bu görüntü cep telefonunuzun kamerasıyla yakalanabilir ve örneğin bir URL olarak yorumlanabilir, böylece URL'yi telefonun küçük klavyesine yazmaktan kurtulursunuz.
+
+İşte programın tamamı. Bir açıklama aşağıda.
+
+```go
+package main
+
+import (
+    "flag"
+    "html/template"
+    "log"
+    "net/http"
+)
+
+var addr = flag.String("addr", ":1718", "http service address") // Q=17, R=18
+
+var templ = template.Must(template.New("qr").Parse(templateStr))
+
+func main() {
+    flag.Parse()
+    http.Handle("/", http.HandlerFunc(QR))
+    err := http.ListenAndServe(*addr, nil)
+    if err != nil {
+        log.Fatal("ListenAndServe:", err)
+    }
+}
+
+func QR(w http.ResponseWriter, req *http.Request) {
+    templ.Execute(w, req.FormValue("s"))
+}
+
+const templateStr = `
+<html>
+<head>
+<title>QR Link Generator</title>
+</head>
+<body>
+{{if .}}
+<img src="http://chart.apis.google.com/chart?chs=300x300&cht=qr&choe=UTF-8&chl={{.}}" />
+<br>
+{{.}}
+<br>
+<br>
+{{end}}
+<form action="/" name=f method="GET">
+    <input maxLength=1024 size=70 name=s value="" title="Text to QR Encode">
+    <input type=submit value="Show QR" name=qr>
+</form>
+</body>
+</html>
+`
+```
+
+`main`'e kadar olan parçaları takip etmek kolay olmalı. Bir flag http sunucumuzun çalışacağı portu ayarlar. Şablon değişkeni `templ` eğlencenin gerçekleştiği yerdir. Sayfayı görüntülemek için sunucu tarafından çalıştırılacak bir HTML şablonu oluşturur; bu konuda daha fazla bilgi birazdan.
+
+`main` fonksiyonu bayrakları _(flag)_ ayrıştırır ve yukarıda bahsettiğimiz mekanizmayı kullanarak `QR` fonksiyonunu sunucunun kök yoluna bağlar. Ardından sunucuyu başlatmak için `http.ListenAndServe` çağrılır; sunucu çalışırken bloklanır.
+
+`QR` sadece form verilerini içeren isteği alır ve `s` adlı form değerindeki veriler üzerinde şablonu çalıştırır.
+
+`html/template` şablon paketi güçlüdür; bu program sadece yeteneklerine değinmektedir. Özünde, `templ.Execute`'a aktarılan veri öğelerinden türetilen öğeleri, bu durumda form değerini değiştirerek bir HTML metni parçasını anında yeniden yazar. Şablon metni _(`templateStr`)_ içinde, çift ayraçla ayrılmış parçalar şablon eylemlerini belirtir. `{{ if .}}` ile `{{end}}` arasındaki parça, yalnızca geçerli veri öğesinin `.` (nokta) olarak adlandırılan değeri boş değilse yürütülür. Yani, dize boş olduğunda, şablonun bu parçası bastırılır.
+
+İki kod parçacığı `{{.}}` şablona sunulan verilerin (sorgu dizesi) web sayfasında gösterilmesini söyler. HTML şablon paketi, metnin güvenli bir şekilde görüntülenmesi için uygun kaçışları _(escaping)_ otomatik olarak sağlar.
+
+Şablon dizesinin geri kalanı sadece sayfa yüklendiğinde gösterilecek HTML'dir. Bu çok hızlı bir açıklama olduysa, daha kapsamlı bir tartışma için [template paketinin belgeleri](https://go.dev/pkg/html/template/)ne bakın.
+
+Ve işte karşınızda: birkaç satır kodla kullanışlı bir web sunucusu ve biraz veri odaklı HTML metni. Go, birkaç satırda çok şey yapabilecek kadar güçlüdür.
