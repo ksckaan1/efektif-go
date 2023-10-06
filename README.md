@@ -40,10 +40,10 @@ Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_g
     - [init Fonksiyonu (The init Function)](#init-fonksiyonu-the-init-function)
 - [Methodlar](#methodlar)
     - [İşaretçiler vs. Değerler](#i%CC%87%C5%9Faret%C3%A7iler-vs-de%C4%9Ferler)
-- [Arayüzler (Interfaces) ve Diğer Tipler](#arabirimler-interfaces-ve-di%C4%9Fer-tipler)
-    - [Arayüzler (Interfaces)](#arabirimler-interfaces)
+- [Arayüzler (Interfaces) ve Diğer Tipler](#aray%C3%BCzler-interfaces-ve-di%C4%9Fer-tipler)
+    - [Arayüzler (Interfaces)](#aray%C3%BCzler-interfaces)
     - [Dönüşümler (Conversions)](#d%C3%B6n%C3%BC%C5%9F%C3%BCmler-conversions)
-    - [Arayüz Dönüştürmeleri ve Tip Doğrulamaları](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)
+    - [Arayüz Dönüştürmeleri ve Tip Doğrulamaları](#aray%C3%BCz-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)
     - [Genellik](#genellik)
     - [Arayüzler (Interfaces) ve Metodlar (Methods)](#aray%C3%BCzler-interfaces-ve-metodlar-methods)
 - [Boş Tanımlayıcı (The blank Identifier)](#bo%C5%9F-tan%C4%B1mlay%C4%B1c%C4%B1-the-blank-identifier)
@@ -1567,9 +1567,9 @@ Bu içe aktarma biçimi, paketin yan etkileri için içe aktarıldığını aç�
 
 ### Arayüz kontrolü
 
-Yukarıdaki [arayüz](#arabirimler-interfaces) tartışmasında gördüğümüz gibi, bir türün bir arayüzü uyguladığını açıkça bildirmesi gerekmez. Bunun yerine, bir tür sadece arayüzün metodlarını uygulayarak arayüzü uygular. Pratikte, çoğu arayüz dönüşümü statiktir ve bu nedenle derleme zamanında kontrol edilir. Örneğin, `io.Reader` bekleyen bir fonksiyona bir `*os.File` geçirmek, `*os.File` `io.Reader` arayüzünü uygulamadığı sürece derlenmeyecektir.
+Yukarıdaki [arayüz](#aray%C3%BCzler-interfaces) tartışmasında gördüğümüz gibi, bir türün bir arayüzü uyguladığını açıkça bildirmesi gerekmez. Bunun yerine, bir tür sadece arayüzün metodlarını uygulayarak arayüzü uygular. Pratikte, çoğu arayüz dönüşümü statiktir ve bu nedenle derleme zamanında kontrol edilir. Örneğin, `io.Reader` bekleyen bir fonksiyona bir `*os.File` geçirmek, `*os.File` `io.Reader` arayüzünü uygulamadığı sürece derlenmeyecektir.
 
-Yine de bazı arayüz kontrolleri çalışma zamanında gerçekleşir. Bir örnek, bir [Marshaler](https://go.dev/pkg/encoding/json/#Marshaler) arayüzü tanımlayan [encoding/json](https://go.dev/pkg/encoding/json/) paketindedir. JSON kodlayıcı _(encoder)_ bu arayüzü uygulayan bir değer aldığında, kodlayıcı standart dönüştürmeyi yapmak yerine değeri JSON'a dönüştürmek için değerin `marshaling` metodunu çağırır. Kodlayıcı, bu özelliği çalışma zamanında aşağıdaki gibi bir [tür iddiası](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1) ile kontrol eder:
+Yine de bazı arayüz kontrolleri çalışma zamanında gerçekleşir. Bir örnek, bir [Marshaler](https://go.dev/pkg/encoding/json/#Marshaler) arayüzü tanımlayan [encoding/json](https://go.dev/pkg/encoding/json/) paketindedir. JSON kodlayıcı _(encoder)_ bu arayüzü uygulayan bir değer aldığında, kodlayıcı standart dönüştürmeyi yapmak yerine değeri JSON'a dönüştürmek için değerin `marshaling` metodunu çağırır. Kodlayıcı, bu özelliği çalışma zamanında aşağıdaki gibi bir [tür iddiası](#aray%C3%BCz-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1) ile kontrol eder:
 
 ```go
 m, ok := val.(json.Marshaler)
@@ -2041,7 +2041,7 @@ for try := 0; try < 2; try++ {
 }
 ```
 
-Buradaki ikinci if deyimi başka bir [tür iddiası](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)dır. Başarısız olursa, `ok` `false` olur ve `e` `nil` olur. Başarılı olursa, `ok` `true` olur, bu da hatanın `*os.PathError` türünde olduğu anlamına gelir ve hata hakkında daha fazla bilgi için inceleyebileceğimiz `e` de öyle olur.
+Buradaki ikinci if deyimi başka bir [tür iddiası](#aray%C3%BCz-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)dır. Başarısız olursa, `ok` `false` olur ve `e` `nil` olur. Başarılı olursa, `ok` `true` olur, bu da hatanın `*os.PathError` türünde olduğu anlamına gelir ve hata hakkında daha fazla bilgi için inceleyebileceğimiz `e` de öyle olur.
 
 ## Panik
 
