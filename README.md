@@ -1612,7 +1612,7 @@ type Writer interface {
 }
 ```
 
-The io package also exports several other interfaces that specify objects that can implement several such methods. For instance, there is io.ReadWriter, an interface containing both Read and Write. We could specify io.ReadWriter by listing the two methods explicitly, but it's easier and more evocative to embed the two interfaces to form the new one, like this:
+`io` paketi ayrıca, bu tür birkaç metodu uygulayabilen nesneleri belirten birkaç başka arayüzü de dışa aktarır. Örneğin, hem `Read` hem de `Write` metodlarını içeren bir arayüz olan `io.ReadWriter` vardır. İki metodu açıkça listeleyerek `io.ReadWriter`'ı belirtebiliriz, ancak iki arayüzü aşağıdaki gibi yeni bir arayüz oluşturacak şekilde yerleştirmek daha kolay ve daha çağrışımlıdır:
 
 ```go
 // ReadWriter, bir Reader ve bir Writer'ın işaretçilerini saklar.
