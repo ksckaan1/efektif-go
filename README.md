@@ -40,10 +40,10 @@ Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_g
     - [init Fonksiyonu (The init Function)](#init-fonksiyonu-the-init-function)
 - [Methodlar](#methodlar)
     - [İşaretçiler vs. Değerler](#i%CC%87%C5%9Faret%C3%A7iler-vs-de%C4%9Ferler)
-- [Arabirimler (Interfaces) ve Diğer Tipler](#arabirimler-interfaces-ve-di%C4%9Fer-tipler)
-    - [Arabirimler (Interfaces)](#arabirimler-interfaces)
+- [Arayüzler (Interfaces) ve Diğer Tipler](#arabirimler-interfaces-ve-di%C4%9Fer-tipler)
+    - [Arayüzler (Interfaces)](#arabirimler-interfaces)
     - [Dönüşümler (Conversions)](#d%C3%B6n%C3%BC%C5%9F%C3%BCmler-conversions)
-    - [Arabirim Dönüştürmeleri ve Tip Doğrulamaları](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)
+    - [Arayüz Dönüştürmeleri ve Tip Doğrulamaları](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)
     - [Genellik](#genellik)
     - [Arayüzler (Interfaces) ve Metodlar (Methods)](#aray%C3%BCzler-interfaces-ve-metodlar-methods)
 - [Boş Tanımlayıcı (The blank Identifier)](#bo%C5%9F-tan%C4%B1mlay%C4%B1c%C4%B1-the-blank-identifier)
@@ -731,7 +731,7 @@ Ama bu tarz bile deyimsel Go değil. Bunun yerine dilimleri _(slices)_ kullanın
 
 ### Dilimler (Slices)
 
-Dilimler, veri dizilerine daha genel, güçlü ve kullanışlı bir arabirim sağlamak için dizileri sarar. Dönüşüm matrisleri gibi açık boyutu olan öğeler dışında, Go'daki dizi programlamanın çoğu basit diziler yerine dilimlerle yapılır.
+Dilimler, veri dizilerine daha genel, güçlü ve kullanışlı bir arayüz sağlamak için dizileri sarar. Dönüşüm matrisleri gibi açık boyutu olan öğeler dışında, Go'daki dizi programlamanın çoğu basit diziler yerine dilimlerle yapılır.
 
 Dilimler, altta yatan bir diziye referanslar tutar ve bir dilimi diğerine atarsanız, her ikisi de aynı diziye başvurur. Bir fonksiyon, bir dilim bağımsız değişkeni alırsa, dilimin öğelerinde yaptığı değişiklikler, alttaki diziye bir işaretçi iletmeye benzer şekilde çağıran tarafından görülebilir. Bu nedenle bir `Read` fonksiyonu, bir işaretçi ve bir sayı yerine bir dilim bağımsız değişkenini kabul edebilir; dilim içindeki uzunluk, okunacak veri miktarının üst sınırını belirler. İşte `package os`'taki `File` type'ın `Read` methodunun imzası:
 
@@ -824,7 +824,7 @@ for i := range picture {
 
 ### Eşlemeler (Maps)
 
-Eşlemeler _(maps)_, bir türdeki _(anahtar)_ değerleri başka bir türdeki _(öğe veya değer)_ değerlerle ilişkilendiren kullanışlı ve güçlü yerleşik bir veri yapısıdır. Anahtar, tamsayılar, kayan noktalı ve karmaşık sayılar, dizeler, işaretçiler, arabirimler _(interfaces)_ _(dinamik tür eşitliği desteklediği sürece)_, yapılar ve diziler gibi eşitlik operatörünün tanımlandığı herhangi bir tür olabilir. Dilimler üzerinde eşitlik tanımlanmadığından eşleme anahtarı olarak kullanılamazlar. Dilimler gibi, eşlemeler de altta yatan bir veri yapısına referanslar içerir. Bir eşlemeyi, eşlemenin içeriğini değiştiren bir fonksiyona iletirseniz, değişiklikler çağıranda görünür olacaktır.
+Eşlemeler _(maps)_, bir türdeki _(anahtar)_ değerleri başka bir türdeki _(öğe veya değer)_ değerlerle ilişkilendiren kullanışlı ve güçlü yerleşik bir veri yapısıdır. Anahtar, tamsayılar, kayan noktalı ve karmaşık sayılar, dizeler, işaretçiler, arayüzler _(interfaces)_ _(dinamik tür eşitliği desteklediği sürece)_, yapılar ve diziler gibi eşitlik operatörünün tanımlandığı herhangi bir tür olabilir. Dilimler üzerinde eşitlik tanımlanmadığından eşleme anahtarı olarak kullanılamazlar. Dilimler gibi, eşlemeler de altta yatan bir veri yapısına referanslar içerir. Bir eşlemeyi, eşlemenin içeriğini değiştiren bir fonksiyona iletirseniz, değişiklikler çağıranda görünür olacaktır.
 
 Eşlemeler, iki nokta üst üste ile ayrılmış anahtar/değer çiftleri ile olağan bileşik hazır bilgi sözdizimi kullanılarak oluşturulabilir, bu nedenle başlatma sırasında bunları oluşturmak kolaydır.
 
@@ -878,7 +878,7 @@ func offset(tz string) int {
 }
 ```
 
-Gerçek değer hakkında endişelenmeden eşlemede var olup olmadığını test etmek için, değer için olağan değişken yerine [boş tanımlayıcıyı (_)](change) kullanabilirsiniz.
+Gerçek değer hakkında endişelenmeden eşlemede var olup olmadığını test etmek için, değer için olağan değişken yerine [boş tanımlayıcıyı (_)](#bo%C5%9F-tan%C4%B1mlay%C4%B1c%C4%B1-the-blank-identifier) kullanabilirsiniz.
 
 ```go
 _, present := timeZone[tz]
@@ -903,7 +903,7 @@ fmt.Println("Hello", 23)
 fmt.Println(fmt.Sprint("Hello ", 23))
 ```
 
-Biçimlendirilmiş yazdırma fonksiyonları `fmt.Fprint` ve arkadaşları, `io.Writer` arabirimini uygulayan herhangi bir nesneyi ilk argüman olarak alır; `os.Stdout` ve `os.Stderr` değişkenleri bilinen örneklerdir.
+Biçimlendirilmiş yazdırma fonksiyonları `fmt.Fprint` ve arkadaşları, `io.Writer` arayüzünü uygulayan herhangi bir nesneyi ilk argüman olarak alır; `os.Stdout` ve `os.Stderr` değişkenleri bilinen örneklerdir.
 
 Burada işler C'den sapmaya başlar. İlk olarak, `%d` gibi sayısal biçimler imza veya boyut için bayrak almaz; bunun yerine yazdırma yordamları, bu özelliklere karar vermek için bağımsız değişkenin türünü kullanır.
 
@@ -985,7 +985,7 @@ aşağıdaki sonucu verir,
 7/-2.35/"abc\tdef"
 ```
 
-_(`T` tipi değerlerin yanı sıra `T` işaretçilerini de yazdırmanız gerekiyorsa, `String` alıcısı değer türünde olmalıdır; bu örnek, yapı türleri için daha verimli ve deyimsel olduğu için bir işaretçi kullanmıştır. Daha fazla bilgi için [işaretçiler vs. değer alıcıları](change) bölümüne bakın.)_
+_(`T` tipi değerlerin yanı sıra `T` işaretçilerini de yazdırmanız gerekiyorsa, `String` alıcısı değer türünde olmalıdır; bu örnek, yapı türleri için daha verimli ve deyimsel olduğu için bir işaretçi kullanmıştır. Daha fazla bilgi için [işaretçiler vs. değer alıcıları](#i%CC%87%C5%9Faret%C3%A7iler-vs-de%C4%9Ferler) bölümüne bakın.)_
 
 `String` methodumuz `Sprintf`'i çağırabilir çünkü yazdırma yordamları tamamen yeniden girilebilir ve bu şekilde sarılabilir. Bununla birlikte, bu yaklaşımla ilgili anlaşılması gereken önemli bir ayrıntı vardır: `Sprintf`'i, `String` methodunuza süresiz olarak tekrarlanacak şekilde çağırarak bir `String` methodu oluşturmayın. Bu, `Sprintf` çağrısı alıcıyı doğrudan bir dizi olarak yazdırmaya çalışırsa, bu da methodu tekrar çağırırsa olabilir. Bu örneğin gösterdiği gibi, yaygın ve yapılması kolay bir hatadır.
 
@@ -1004,7 +1004,7 @@ func (m MyString) String() string {
 }
 ```
 
-[Atama bölümü](change)nde, bu yinelemeyi önleyen başka bir teknik göreceğiz.
+[Tanımlama bölümü](#tan%C4%B1mlama-initialization)nde, bu yinelemeyi önleyen başka bir teknik göreceğiz.
 
 Başka bir yazdırma tekniği, bir yazdırma rutininin argümanlarını doğrudan başka bir rutine iletmektir. `Printf`'in imzası, formattan sonra rastgele sayıda parametrenin (isteğe bağlı türde) görünebileceğini belirtmek için son bağımsız değişkeni olarak `...interface{}` türünü kullanır.
 
@@ -1164,7 +1164,7 @@ func init() {
 
 ### İşaretçiler vs. Değerler
 
-`ByteSize` ile gördüğümüz gibi, herhangi bir adlandırılmış tür için methodlar tanımlanabilir _(işaretçi veya arabirim hariç)_; alıcının bir yapı _(struct)_ olması gerekmez.
+`ByteSize` ile gördüğümüz gibi, herhangi bir adlandırılmış tür için methodlar tanımlanabilir _(işaretçi veya arayüz hariç)_; alıcının bir yapı _(struct)_ olması gerekmez.
 
 Yukarıdaki dilim tartışmasında, bir `Append` fonksiyonu yazdık. Bunun yerine dilimler üzerinde bir method olarak tanımlayabiliriz. Bunu yapmak için, önce methodu bağlayabileceğimiz adlandırılmış bir tür bildiririz ve ardından methodun alıcısını o türün bir değeri yaparız.
 
@@ -1197,7 +1197,7 @@ func (p *ByteSlice) Write(data []byte) (n int, err error) {
 }
 ```
 
-o zaman `*ByteSlice` türü kullanışlı olan standart `io.Writer` arabirimini karşılar. Örneğin, birine yazdırabiliriz.
+o zaman `*ByteSlice` türü kullanışlı olan standart `io.Writer` arayüzünü karşılar. Örneğin, birine yazdırabiliriz.
 
 ```go
 var b ByteSlice
@@ -1210,13 +1210,13 @@ Bu kural, işaretçi methodlarının alıcıyı değiştirebilmesi nedeniyle ort
 
 Bu arada, bir bayt diliminde `Write` kullanma fikri, `bytes.Buffer` uygulamasının merkezinde yer alır.
 
-## Arabirimler _(Interfaces)_ ve Diğer Tipler
+## Arayüzler _(Interfaces)_ ve Diğer Tipler
 
-### Arabirimler _(Interfaces)_
+### Arayüzler _(Interfaces)_
 
-Go'daki arabirimler, bir nesnenin davranışını belirlemenin yolunu sağlar: eğer bir şey bunu yapabiliyorsa, o zaman burada kullanılabilir mantığını sağlar. Zaten birkaç basit örnek gördük; özel yazıcılar _(writer)_ bir `String` methoduyla uygulanabilirken `Fprintf`, `Write` methoduyla her şeye çıktı üretebilir. Yalnızca bir veya iki methodu olan arabirimler Go kodunda yaygındır ve genellikle bu methoddan türetilen bir ad verilir, örneğin `Write`'ı uygulayan bir şey için `io.Writer`.
+Go'daki arayüzler, bir nesnenin davranışını belirlemenin yolunu sağlar: eğer bir şey bunu yapabiliyorsa, o zaman burada kullanılabilir mantığını sağlar. Zaten birkaç basit örnek gördük; özel yazıcılar _(writer)_ bir `String` methoduyla uygulanabilirken `Fprintf`, `Write` methoduyla her şeye çıktı üretebilir. Yalnızca bir veya iki methodu olan arayüzler Go kodunda yaygındır ve genellikle bu methoddan türetilen bir ad verilir, örneğin `Write`'ı uygulayan bir şey için `io.Writer`.
 
-Bir tür, birden çok arabirim uygulayabilir. Örneğin, bir koleksiyon, `Len()`, `Less(i, j int) bool` ve `Swap(i, j int)` içeren `sort.Interface` öğesini uygularsa, `sort` paketindeki yordamlara göre sıralanabilir ve ayrıca özel biçimlendiricisi vardır. Bu yapmacık örnekte `Sort` her ikisini de karşılar.
+Bir tür, birden çok arayüz uygulayabilir. Örneğin, bir koleksiyon, `Len()`, `Less(i, j int) bool` ve `Swap(i, j int)` içeren `sort.Interface` öğesini uygularsa, `sort` paketindeki yordamlara göre sıralanabilir ve ayrıca özel biçimlendiricisi vardır. Bu yapmacık örnekte `Sort` her ikisini de karşılar.
 
 ```go
 type Sequence []int
@@ -1281,11 +1281,11 @@ func (s Sequence) String() string {
 }
 ```
 
-Şimdi, `Sequence`'ın birden çok arabirim _(interface) (sıralama ve yazdırma)_ uygulamasına sahip olmak yerine, bir veri öğesinin birden çok türe _(`Sequence`, `sort.IntSlice` ve `[]int`)_ dönüştürülebilme özelliğini kullanıyoruz. Bu pratikte daha sıra dışı ama etkili olabilir.
+Şimdi, `Sequence`'ın birden çok arayüz _(interface) (sıralama ve yazdırma)_ uygulamasına sahip olmak yerine, bir veri öğesinin birden çok türe _(`Sequence`, `sort.IntSlice` ve `[]int`)_ dönüştürülebilme özelliğini kullanıyoruz. Bu pratikte daha sıra dışı ama etkili olabilir.
 
-### Arabirim Dönüştürmeleri ve Tip Doğrulamaları
+### Arayüz Dönüştürmeleri ve Tip Doğrulamaları
 
-[Tip anahtarları](change) bir dönüştürme biçimidir: bir arabirim _(her tip olabilir)_ alırlar ve anahtardaki her durum için onu bir anlamda o durumun türüne dönüştürürler. İşte `fmt.Printf` altındaki kodun bir tip anahtarını kullanarak bir değeri nasıl bir dizeye _(string)_ dönüştürdüğünün basitleştirilmiş bir versiyonu. Zaten bir dize ise, arabirim tarafından tutulan gerçek dize değerini isteriz, bir `String` methodu varsa, methodu çağırmanın sonucunu isteriz.
+[Tip anahtarları](#type-switch) bir dönüştürme biçimidir: bir arayüz _(her tip olabilir)_ alırlar ve anahtardaki her durum için onu bir anlamda o durumun türüne dönüştürürler. İşte `fmt.Printf` altındaki kodun bir tip anahtarını kullanarak bir değeri nasıl bir dizeye _(string)_ dönüştürdüğünün basitleştirilmiş bir versiyonu. Zaten bir dize ise, arayüz tarafından tutulan gerçek dize değerini isteriz, bir `String` methodu varsa, methodu çağırmanın sonucunu isteriz.
 
 ```go
 type Stringer interface {
@@ -1301,17 +1301,17 @@ case Stringer:
 }
 ```
 
-Birinci durum somut bir değer bulur; ikincisi arabirimi başka bir arabirime dönüştürür.
+Birinci durum somut bir değer bulur; ikincisi arayüzü başka bir arayüze dönüştürür.
 
 Türleri bu şekilde karıştırmak gayet iyi. Ya önemsediğimiz tek bir tür varsa? Değerin bir dize tuttuğunu biliyorsak ve sadece onu çıkarmak istiyorsak?
 
-Tek durum tipi bir anahtar işe yarar, ancak bir tip iddiası da olur. Bir tür doğrulaması, bir arabirim değeri alır ve ondan belirtilen açık türün bir değerini çıkarır. Sözdizimi, bir tür anahtarını açan yan tümceden ödünç alır, ancak `type` anahtar sözcüğü yerine açık bir türle:
+Tek durum tipi bir anahtar işe yarar, ancak bir tip iddiası da olur. Bir tür doğrulaması, bir arayüz değeri alır ve ondan belirtilen açık türün bir değerini çıkarır. Sözdizimi, bir tür anahtarını açan yan tümceden ödünç alır, ancak `type` anahtar sözcüğü yerine açık bir türle:
 
 ```go
 value.(typeName)
 ```
 
-ve sonuç, `typeName` statik türüne sahip yeni bir değerdir. Bu tür, arabirim tarafından tutulan somut tür veya değerin dönüştürülebileceği ikinci bir arabirim türü olmalıdır. Değerde olduğunu bildiğimiz dizgiyi çıkarmak için şunu yazabiliriz:
+ve sonuç, `typeName` statik türüne sahip yeni bir değerdir. Bu tür, arayüz tarafından tutulan somut tür veya değerin dönüştürülebileceği ikinci bir arayüz türü olmalıdır. Değerde olduğunu bildiğimiz dizgiyi çıkarmak için şunu yazabiliriz:
 
 ```go
 str := value.(string)
@@ -1342,13 +1342,13 @@ if str, ok := value.(string); ok {
 
 ### Genellik
 
-Bir tür yalnızca bir arabirim uygulamak için varsa ve hiçbir zaman bu arabirimin ötesinde dışa aktarılan methodlara sahip olmayacaksa, türün kendisini dışa aktarmaya gerek yoktur. Yalnızca arabirimi dışa aktarmak, değerin arabirimde açıklananın ötesinde ilginç bir davranışa sahip olmadığını açıkça ortaya koyar. Ayrıca, ortak bir methodun her örneğinde belgeleri tekrar etme ihtiyacını da ortadan kaldırır.
+Bir tür yalnızca bir arayüz uygulamak için varsa ve hiçbir zaman bu arayüzü ötesinde dışa aktarılan methodlara sahip olmayacaksa, türün kendisini dışa aktarmaya gerek yoktur. Yalnızca arayüzü dışa aktarmak, değerin arayüzde açıklananın ötesinde ilginç bir davranışa sahip olmadığını açıkça ortaya koyar. Ayrıca, ortak bir methodun her örneğinde belgeleri tekrar etme ihtiyacını da ortadan kaldırır.
 
-Bu gibi durumlarda, yapıcı _(contructor)_, uygulama türü yerine bir arabirim değeri döndürmelidir. Örnek olarak, `hash` kitaplıklarında hem `crc32.NewIEEE` hem de `adler32.New` `hash.Hash32` arabirim tipini döndürür. Bir Go programında `Adler-32` yerine `CRC-32` algoritmasının kullanılması, yalnızca yapıcı çağrısının değiştirilmesini gerektirir; kodun geri kalanı algoritma değişikliğinden etkilenmez.
+Bu gibi durumlarda, yapıcı _(contructor)_, uygulama türü yerine bir arayüz değeri döndürmelidir. Örnek olarak, `hash` kitaplıklarında hem `crc32.NewIEEE` hem de `adler32.New` `hash.Hash32` arayüz tipini döndürür. Bir Go programında `Adler-32` yerine `CRC-32` algoritmasının kullanılması, yalnızca yapıcı çağrısının değiştirilmesini gerektirir; kodun geri kalanı algoritma değişikliğinden etkilenmez.
 
-Benzer bir yaklaşım, çeşitli `crypto` paketlerindeki akış şifreleme algoritmalarının, birlikte zincirledikleri blok şifrelerden ayrılmasını sağlar. `crypto/cipher` paketindeki `Block` arabirimi, tek bir veri bloğunun şifrelenmesini sağlayan bir blok şifrenin davranışını belirtir. Ardından, `bufio` paketine benzetilerek, bu arabirimi uygulayan şifre paketleri, blok şifrelemenin ayrıntılarını bilmeden `Stream` arabirimi tarafından temsil edilen `stream` şifrelerini oluşturmak için kullanılabilir.
+Benzer bir yaklaşım, çeşitli `crypto` paketlerindeki akış şifreleme algoritmalarının, birlikte zincirledikleri blok şifrelerden ayrılmasını sağlar. `crypto/cipher` paketindeki `Block` arayüzü, tek bir veri bloğunun şifrelenmesini sağlayan bir blok şifrenin davranışını belirtir. Ardından, `bufio` paketine benzetilerek, bu arayüzü uygulayan şifre paketleri, blok şifrelemenin ayrıntılarını bilmeden `Stream` arayüzü tarafından temsil edilen `stream` şifrelerini oluşturmak için kullanılabilir.
 
-`crypto/cipher` arabirimleri şöyle görünür:
+`crypto/cipher` arayüzleri şöyle görünür:
 
 ```go
 type Block interface {
@@ -1370,7 +1370,7 @@ type Stream interface {
 func NewCTR(block Block, iv []byte) Stream
 ```
 
-`NewCTR`, yalnızca belirli bir şifreleme algoritması ve veri kaynağı için değil, `Block` arabiriminin ve herhangi bir `Stream`'in herhangi bir uygulaması için geçerlidir. Arabirim değerleri döndürdükleri için, `CTR` şifrelemesini diğer şifreleme modlarıyla değiştirmek yerelleştirilmiş bir değişikliktir. Yapıcı çağrıları düzenlenmelidir, ancak çevreleyen kod sonucu yalnızca bir `Stream` olarak ele alması gerektiğinden, farkı fark etmeyecektir.
+`NewCTR`, yalnızca belirli bir şifreleme algoritması ve veri kaynağı için değil, `Block` arayüzün ve herhangi bir `Stream`'in herhangi bir uygulaması için geçerlidir. Arayüz değerleri döndürdükleri için, `CTR` şifrelemesini diğer şifreleme modlarıyla değiştirmek yerelleştirilmiş bir değişikliktir. Yapıcı çağrıları düzenlenmelidir, ancak çevreleyen kod sonucu yalnızca bir `Stream` olarak ele alması gerektiğinden, farkı fark etmeyecektir.
 
 ### Arayüzler (Interfaces) ve Metodlar (Methods)
 
@@ -1479,7 +1479,7 @@ Bu bölümde bir `struct`, bir `integer`, bir `kanal` ve bir fonksiyondan bir HT
 
 ## Boş Tanımlayıcı _(The blank Identifier)_
 
-Boş tanımlayıcıdan `for range` [döngü](changeme)leri ve [map](change)'ler bağlamında birkaç kez bahsetmiştik. Boş tanımlayıcı, herhangi bir türden herhangi bir değerle atanabilir veya bildirilebilir, değer zararsız bir şekilde atılır. Bu biraz Unix `/dev/null` dosyasına yazmaya benzer: bir değişkene ihtiyaç duyulan ancak gerçek değerin önemsiz olduğu durumlarda yer tutucu olarak kullanılmak üzere yalnızca yazılabilir bir değeri temsil eder. Daha önce gördüklerimizin ötesinde kullanımları vardır.
+Boş tanımlayıcıdan `for range` [döngü](#for)leri ve [map](#e%C5%9Flemeler-maps)'ler bağlamında birkaç kez bahsetmiştik. Boş tanımlayıcı, herhangi bir türden herhangi bir değerle atanabilir veya bildirilebilir, değer zararsız bir şekilde atılır. Bu biraz Unix `/dev/null` dosyasına yazmaya benzer: bir değişkene ihtiyaç duyulan ancak gerçek değerin önemsiz olduğu durumlarda yer tutucu olarak kullanılmak üzere yalnızca yazılabilir bir değeri temsil eder. Daha önce gördüklerimizin ötesinde kullanımları vardır.
 
 ### Çoklu atamada boş tanımlayıcı
 
@@ -1567,9 +1567,9 @@ Bu içe aktarma biçimi, paketin yan etkileri için içe aktarıldığını aç�
 
 ### Arayüz kontrolü
 
-Yukarıdaki [arayüz](changeme) tartışmasında gördüğümüz gibi, bir türün bir arayüzü uyguladığını açıkça bildirmesi gerekmez. Bunun yerine, bir tür sadece arayüzün metodlarını uygulayarak arayüzü uygular. Pratikte, çoğu arayüz dönüşümü statiktir ve bu nedenle derleme zamanında kontrol edilir. Örneğin, `io.Reader` bekleyen bir fonksiyona bir `*os.File` geçirmek, `*os.File` `io.Reader` arayüzünü uygulamadığı sürece derlenmeyecektir.
+Yukarıdaki [arayüz](#arabirimler-interfaces) tartışmasında gördüğümüz gibi, bir türün bir arayüzü uyguladığını açıkça bildirmesi gerekmez. Bunun yerine, bir tür sadece arayüzün metodlarını uygulayarak arayüzü uygular. Pratikte, çoğu arayüz dönüşümü statiktir ve bu nedenle derleme zamanında kontrol edilir. Örneğin, `io.Reader` bekleyen bir fonksiyona bir `*os.File` geçirmek, `*os.File` `io.Reader` arayüzünü uygulamadığı sürece derlenmeyecektir.
 
-Yine de bazı arayüz kontrolleri çalışma zamanında gerçekleşir. Bir örnek, bir [Marshaler](https://go.dev/pkg/encoding/json/#Marshaler) arayüzü tanımlayan [encoding/json](https://go.dev/pkg/encoding/json/) paketindedir. JSON kodlayıcı _(encoder)_ bu arayüzü uygulayan bir değer aldığında, kodlayıcı standart dönüştürmeyi yapmak yerine değeri JSON'a dönüştürmek için değerin `marshaling` metodunu çağırır. Kodlayıcı, bu özelliği çalışma zamanında aşağıdaki gibi bir [tür iddiası](changeme) ile kontrol eder:
+Yine de bazı arayüz kontrolleri çalışma zamanında gerçekleşir. Bir örnek, bir [Marshaler](https://go.dev/pkg/encoding/json/#Marshaler) arayüzü tanımlayan [encoding/json](https://go.dev/pkg/encoding/json/) paketindedir. JSON kodlayıcı _(encoder)_ bu arayüzü uygulayan bir değer aldığında, kodlayıcı standart dönüştürmeyi yapmak yerine değeri JSON'a dönüştürmek için değerin `marshaling` metodunu çağırır. Kodlayıcı, bu özelliği çalışma zamanında aşağıdaki gibi bir [tür iddiası](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1) ile kontrol eder:
 
 ```go
 m, ok := val.(json.Marshaler)
@@ -2041,7 +2041,7 @@ for try := 0; try < 2; try++ {
 }
 ```
 
-Buradaki ikinci if deyimi başka bir [tür iddiası](changeme)dır. Başarısız olursa, `ok` `false` olur ve `e` `nil` olur. Başarılı olursa, `ok` `true` olur, bu da hatanın `*os.PathError` türünde olduğu anlamına gelir ve hata hakkında daha fazla bilgi için inceleyebileceğimiz `e` de öyle olur.
+Buradaki ikinci if deyimi başka bir [tür iddiası](#arabirim-d%C3%B6n%C3%BC%C5%9Ft%C3%BCrmeleri-ve-tip-do%C4%9Frulamalar%C4%B1)dır. Başarısız olursa, `ok` `false` olur ve `e` `nil` olur. Başarılı olursa, `ok` `true` olur, bu da hatanın `*os.PathError` türünde olduğu anlamına gelir ve hata hakkında daha fazla bilgi için inceleyebileceğimiz `e` de öyle olur.
 
 ## Panik
 
