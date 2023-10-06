@@ -5,6 +5,9 @@ Bu döküman 28.08.2022 tarihinde [Effective Go](https://go.dev/doc/effective\_g
 ### İçerik Tablosu
 
 - [Giriş](#giri%C5%9F)
+    - [Örnekler](#%C3%B6rnekler)
+- [Biçimlendirme (Formatting)](#bi%C3%A7imlendirme-formatting)
+- [Yorumlar](#yorumlar)
 
 ## Giriş
 
