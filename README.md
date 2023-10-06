@@ -571,9 +571,7 @@ Diğer dillerden blok düzeyinde _(block-level)_ kaynak yönetimine alışmış 
 
 ### &#x20;`new` ile Tahsis _(Allocation) Etme_
 
-{% hint style="info" %}
-_Bu bölümde tabir olarak "tahsis etmek", "ayırmak" çevirileri "allocation" için kullanılmıştır. Özetle hafıza üzerinde bir alan ayrılması anlamına gelir._
-{% endhint %}
+> Bu bölümde tabir olarak "tahsis etmek", "ayırmak" çevirileri "allocation" için kullanılmıştır. Özetle hafıza üzerinde bir alan ayrılması anlamına gelir.
 
 Go, yerleşik fonksiyonlar `new` ve `make` olmak üzere iki tahsis ilkesine sahiptir. Farklı şeyler yaparlar ve farklı türlere uygulanırlar, bu da kafa karıştırıcı olabilir, ancak kurallar basittir. Önce `new`'den bahsedelim. Bellek tahsis eden yerleşik bir fonksiyondur, ancak diğer bazı dillerdeki adlarından farklı olarak belleği başlatmaz, yalnızca sıfırlar _(yani yazar atama işlemi yapmadığını söylüyor)_. Yani, `new(T)`, `T` türünde yeni bir öğe için sıfırlanmış depolama tahsis eder ve adresini, `*T` türünde bir değer olarak döndürür. Go terminolojisinde, `T` türünde yeni tahsis edilen sıfır değerine bir işaretçi _(pointer)_ döndürür. `new` tarafından döndürülen bellek sıfırlandığından, veri yapılarınızı tasarlarken her türün sıfır değerinin daha fazla başlatma _(initializing)_ olmadan kullanılabileceği şekilde düzenlemeniz yararlı olur. Bu, veri yapısını `new` ile yeni bir tane oluşturabileceği ve hemen çalışmaya başlayabileceği anlamına gelir. Örneğin, `bytes.Buffer` dökümanı, "`Buffer`'ın sıfır değeri, kullanıma hazır bir `buffer`'dır." diye belirtir. Benzer şekilde, `sync.Mutex`'in açık bir kurucusu (constructor) veya `Init` metodu yoktur. Bunun yerine, bir `sync.Mutex` için sıfır değeri, kilidi açılmış bir `mutex` `(unlocked mutex)` olarak tanımlanır.
 
