@@ -153,7 +153,7 @@ Diğer bir kısa örnek ise `once.Do`; `once.Do(setup)` çağrımı iyi okunur f
 
 ### Getters (Alıcılar)
 
-Go, setters _(alıcılar)_ ve setters _(atayıcılar)_ için otomatik destek sağlamaz. Alıcıları ve atayıcıları kendiniz sağlamakta yanlış bir şey yoktur ve bunu yapmak genellikle uygundur, ancak `Get`'i alıcının adına koymak ne deyimsel _(idiomatic)_ ne de gereklidir. Örnek olarak `owner` _(küçük harf, dışa aktarılmamış)_ adında bir alanınız varsa, alıcı yöntemi `GetOwner` değil, `Owner` _(büyük harf, dışa aktarılmış)_ olarak adlandırılmalıdır. Dışa aktarma için büyük harf adlarının kullanılması, hook'un _(burada yapıyı değiştirmeden işlem yapabilmeyi sağlayan araç anlamında kullanılmış)_ struct içerisindeki alanı fonksiyondan ayırt etmesini sağlar. Bu mantığın devamı olarak gerekirse bir atayıcı fonksiyonu muhtemelen `SetOwner` olarak adlandırılacaktır. Her iki isim de pratikte iyi okunuyor:
+Go, getters _(alıcılar)_ ve setters _(atayıcılar)_ için otomatik destek sağlamaz. Alıcıları ve atayıcıları kendiniz sağlamakta yanlış bir şey yoktur ve bunu yapmak genellikle uygundur, ancak `Get`'i alıcının adına koymak ne deyimsel _(idiomatic)_ ne de gereklidir. Örnek olarak `owner` _(küçük harf, dışa aktarılmamış)_ adında bir alanınız varsa, alıcı yöntemi `GetOwner` değil, `Owner` _(büyük harf, dışa aktarılmış)_ olarak adlandırılmalıdır. Dışa aktarma için büyük harf adlarının kullanılması, hook'un _(burada yapıyı değiştirmeden işlem yapabilmeyi sağlayan araç anlamında kullanılmış)_ struct içerisindeki alanı fonksiyondan ayırt etmesini sağlar. Bu mantığın devamı olarak gerekirse bir atayıcı fonksiyonu muhtemelen `SetOwner` olarak adlandırılacaktır. Her iki isim de pratikte iyi okunuyor:
 
 ```go
 owner := obj.Owner()
@@ -164,11 +164,11 @@ if owner != user {
 
 ### Interface (Arayüz) İsimleri
 
-Geleneksel olarak, tek fonksiyonlu interface'ler, içerisindeki fonksiyon adında yola çıkılarak bir aracı adı oluşturmak için interface adının sonuna `-er` eki veya benzer bir değişiklikle adlandırılır: `Reader`, `Writer`, `Formatter`, `CloseNotifier` vb.
+Geleneksel olarak, tek fonksiyonlu interface'ler, içerisindeki fonksiyon adından yola çıkılarak bir aracı adı oluşturmak için interface adının sonuna `-er` eki veya benzer bir değişiklikle adlandırılır: `Reader`, `Writer`, `Formatter`, `CloseNotifier` vb.
 
 Bu tür isim kullanımlarını amacı, kapsadıkları fonksiyonların isimlerini kendi _(interface)_ isimlerine atfetmektir. `Read`, `Write`, `Close`, `Flush`, `String` vb. kurallı signature'lara _(fonksiyonun ismi, girdileri ve çıktılarını gösteren imza)_ ve anlamlara sahiptir. Karışıklığı önlemek için, aynı signature `(imza)` ve anlama sahip olmadıkça, fonksiyonunuza bu adlardan birini vermeyin. Tersine, türünüz `(type)` iyi bilinen bir türdeki fonksiyonla aynı anlama sahip bir fonksiyonda uygulanırsa, ona aynı adı veya imzayı vermeyin;  örneğin `string` tipine dönüştürücü fonksiyonunuzu `String` değil `ToString` olarak adlandırın.
 
-### MixedCaps (Büyük-Küçük Karışık İsimlendirme) <a href="#mixed-caps" id="mixed-caps"></a>
+### MixedCaps (Büyük-Küçük Karışık İsimlendirme)
 
 Son olarak, Go'daki kural, çok kelimeli adlar yazmak için alt çizgi yerine `MixedCaps` veya `mixedCaps` kullanmaktır.
 
