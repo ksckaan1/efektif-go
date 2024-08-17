@@ -15,7 +15,7 @@
     - [Paket İsimleri](#paket-i%CC%87simleri)
     - [Getters (Alıcılar)](#getters-al%C4%B1c%C4%B1lar)
     - [Interface (Arayüz) İsimleri](#interface-aray%C3%BCz-i%CC%87simleri)
-    - [MixedCaps (Büyük-Küçük Karışık İsimlendirme)](#mixedcaps-b%C3%BCy%C3%BCk-k%C3%BC%C3%A7%C3%BCk-kar%C4%B1%C5%9F%C4%B1k-i%CC%87simlendirme-)
+    - [MixedCaps (Büyük-Küçük Karışık İsimlendirme)](#mixedcaps-b%C3%BCy%C3%BCk-k%C3%BC%C3%A7%C3%BCk-kar%C4%B1%C5%9F%C4%B1k-i%CC%87simlendirme)
 - [Noktalı Virgüller (Semicolons)](#noktal%C4%B1-virg%C3%BCller-semicolons)
 - [Kontrol Yapıları](#kontrol-yap%C4%B1lar%C4%B1)
     - [If](#if)
